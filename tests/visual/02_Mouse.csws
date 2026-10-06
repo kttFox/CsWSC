@@ -1,0 +1,67 @@
+// 目視テスト 02: マウス
+// 対象: MouseMove / MousePos / Click / Btn / Wheel / PeekColor / MusCur / PosAcc
+// 注意: 実際にマウスが動きます。途中で止めるには Pause キー。
+
+Balloon? stepBalloon = null;
+void Step(string s)
+{
+    Print("▶ " + s);
+    if (stepBalloon is { IsClosed: false }) stepBalloon.Update(s);
+    else stepBalloon = Fukidasi(s, 20, 20, BalloonTail.None, 12);
+    Sleep(1.5);
+}
+void Check(string name, bool ok) => Print($"  [{(ok ? "OK" : "NG")}] {name}");
+
+var screen = Screen.PrimaryScreen!.Bounds;
+var cx = screen.Width / 2;
+var cy = screen.Height / 2;
+
+Step("MouseMove: 画面中央で四角形を描きます");
+foreach (var (dx, dy) in new[] { (-200, -150), (200, -150), (200, 150), (-200, 150), (-200, -150) })
+{
+    MouseMove(cx + dx, cy + dy);
+    Sleep(0.4);
+}
+Check($"MousePos = {MousePos}", MousePos == new Point(cx - 200, cy - 150));
+
+// テスト用ノートパッドでクリック・ホイールを確認
+var np = Exec("notepad.exe");
+if (np == null) { Print("notepad が起動できませんでした"); return; }
+np.Activate().Move(cx - 300, cy - 200, 600, 400);
+np.SendText(string.Join("\r\n", Enumerable.Range(1, 100).Select(i => $"{i} 行目")));
+Kbd(Keys.ControlKey, KeyAction.Down); Kbd(Keys.Home); Kbd(Keys.ControlKey, KeyAction.Up);
+
+Step("MusCur: テキスト上のカーソル形状 (IBeam のはず)");
+MouseMove(cx, cy);
+Sleep(0.3);
+Check($"MusCur = {MusCur}", MusCur == CursorKind.IBeam);
+
+Step("Wheel: 下に 5 ノッチ → 上に 5 ノッチ スクロールします");
+Wheel(-5); Sleep(1);
+Wheel(5); Sleep(1);
+
+Step("Click: 右クリックでコンテキストメニューが出ます");
+Click(cx, cy, MouseButton.Right);
+Sleep(1.5);
+Kbd(Keys.Escape);
+
+Step("Btn: 左ボタン Down → 移動 → Up で範囲選択します");
+MouseMove(cx - 250, cy - 120);
+Btn(MouseButton.Left, KeyAction.Down);
+MouseMove(cx + 100, cy + 50);
+Sleep(0.3);
+Btn(MouseButton.Left, KeyAction.Up);
+Sleep(1.5);
+
+Step("PeekColor: ノートパッド本文 (白) の色");
+var c = PeekColor(np.ClientBounds.Right - 40, np.ClientBounds.Bottom - 40);
+Print($"  PeekColor = {c}");
+
+Step("PosAcc: マウス下のコントロール文字列 (タイトルバー)");
+MouseMove(np.X + 150, np.Y + 15);
+Sleep(0.5);
+Print($"  PosAcc = \"{PosAcc(np.X + 150, np.Y + 15)}\"");
+
+FukidasiClear();
+np.Kill();
+Print("完了");

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CsWSC/CsWSC.csproj" />
+    <Project Path="src/CsWSC.Generators/CsWSC.Generators.csproj" />
+    <Project Path="src/CsWSC.LanguageServer/CsWSC.LanguageServer.csproj" />
+    <Project Path="src/CsWSC.UI/CsWSC.UI.csproj" />
+  </Folder>
+</Solution>

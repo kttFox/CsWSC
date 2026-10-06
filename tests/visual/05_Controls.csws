@@ -1,0 +1,119 @@
+// 目視テスト 05: コントロール操作 (UI Automation / 子ウィンドウ)
+// 対象: ClickItem / ChkBtn / GetItem / GetSlctLst / GetSlider / SetSlider /
+//       Children / FindChild / Text / PostClick / Window.Click / Window.PosAcc
+// スクリプト内でテスト用フォームを作って操作します。
+
+Balloon? stepBalloon = null;
+void Step(string s)
+{
+    Print("▶ " + s);
+    if (stepBalloon is { IsClosed: false }) stepBalloon.Update(s);
+    else stepBalloon = Fukidasi(s, 20, 20, BalloonTail.None, 12);
+    Sleep(1.5);
+}
+void Check(string name, bool ok) => Print($"  [{(ok ? "OK" : "NG")}] {name}");
+
+// ---- テスト用フォーム (別 STA スレッドで表示) ----
+const string FormTitle = "CsWSC コントロールテスト";
+Form? form = null;
+Label? log = null;
+var ui = new System.Threading.Thread(() =>
+{
+    form = new Form { Text = FormTitle, StartPosition = FormStartPosition.Manual, Location = new Point(300, 200), ClientSize = new Size(460, 300), TopMost = true };
+    log = new Label { Location = new Point(10, 270), AutoSize = true, Text = "ログ: -" };
+    var button = new Button { Text = "押してね", Location = new Point(10, 10), Width = 100 };
+    button.Click += (_, _) => log.Text = "ログ: ボタンが押されました " + DateTime.Now.ToString("HH:mm:ss");
+    var check = new CheckBox { Text = "チェックA", Location = new Point(130, 12), Checked = true };
+    var check2 = new CheckBox { Text = "チェックB", Location = new Point(240, 12) };
+    var radio1 = new RadioButton { Text = "ラジオ1", Location = new Point(10, 50), Checked = true };
+    var radio2 = new RadioButton { Text = "ラジオ2", Location = new Point(120, 50) };
+    var edit = new TextBox { Text = "初期テキスト", Location = new Point(10, 90), Width = 200 };
+    var list = new ListBox { Location = new Point(10, 125), Size = new Size(150, 80) };
+    list.Items.AddRange(["りんご", "みかん", "ぶどう"]);
+    list.SelectedIndex = 1;
+    var combo = new ComboBox { Location = new Point(180, 125), Width = 120, DropDownStyle = ComboBoxStyle.DropDownList };
+    combo.Items.AddRange(["赤", "青", "緑"]);
+    combo.SelectedIndex = 2;
+    var track = new TrackBar { Location = new Point(10, 215), Width = 300, Minimum = 0, Maximum = 100, Value = 20, TickFrequency = 10 };
+    track.ValueChanged += (_, _) => log.Text = $"ログ: スライダー = {track.Value}";
+    form.Controls.AddRange([button, check, check2, radio1, radio2, edit, list, combo, track, log]);
+    Application.Run(form);
+});
+ui.SetApartmentState(ApartmentState.STA);
+ui.IsBackground = true;
+ui.Start();
+
+var win = WaitWindow(FormTitle, timeout: 5);
+if (win == null) { Print("テストフォームが表示されませんでした"); return; }
+win.Activate();
+
+try
+{
+    Step("GetItem: コントロール名の一覧 (ボタン・チェック・ラジオ)");
+    foreach (var s in win.GetItem(ItemKind.Button | ItemKind.CheckBox | ItemKind.RadioButton)) Print($"  {s}");
+    Print("  -- 全種類 --");
+    foreach (var s in win.GetItem()) Print($"  {s}");
+
+    Step("ChkBtn: チェック状態 (A=1, B=0, ラジオ1=1)");
+    Check($"ChkBtn(チェックA) = {win.ChkBtn("チェックA")}", win.ChkBtn("チェックA") == 1);
+    Check($"ChkBtn(チェックB) = {win.ChkBtn("チェックB")}", win.ChkBtn("チェックB") == 0);
+    Check($"ChkBtn(ラジオ1) = {win.ChkBtn("ラジオ1")}", win.ChkBtn("ラジオ1") == 1);
+
+    Step("ClickItem: 「押してね」ボタン → ログ欄が変わります");
+    Check("ClickItem(押してね)", win.ClickItem("押してね"));
+    Sleep(1);
+
+    Step("ClickItem: チェックB を ON、ラジオ2 を選択");
+    win.ClickItem("チェックB");
+    win.ClickItem("ラジオ2");
+    Sleep(1);
+    Check("チェックB = 1", win.ChkBtn("チェックB") == 1);
+    Check("ラジオ2 = 1", win.ChkBtn("ラジオ2") == 1);
+
+    Step("GetSlctLst: リスト (みかん) とコンボ (緑) の選択項目");
+    Check($"GetSlctLst(1) = {string.Join(",", win.GetSlctLst(1))}", win.GetSlctLst(1).Contains("みかん"));
+    Check($"GetSlctLst(2) = {string.Join(",", win.GetSlctLst(2))}", win.GetSlctLst(2).Contains("緑"));
+
+    Step("ClickItem: リスト項目「ぶどう」を選択");
+    win.ClickItem("ぶどう");
+    Sleep(1);
+    Check("GetSlctLst(1) = ぶどう", win.GetSlctLst(1).Contains("ぶどう"));
+
+    Step("GetSlider / SetSlider: 20 → 80 → 範囲外 200 (100 に丸め)");
+    Print($"  GetSlider = {win.GetSlider()}");
+    Check("SetSlider(80)", win.SetSlider(80));
+    Sleep(1);
+    Check("GetSlider.Value = 80", win.GetSlider()?.Value == 80);
+    win.SetSlider(200);
+    Sleep(1);
+    Check("GetSlider.Value = 100", win.GetSlider()?.Value == 100);
+
+    Step("Children / FindChild / Text");
+    foreach (var c in win.Children()) Print($"  {c.ClassName} \"{c.Text}\"");
+    var btn = win.FindChild("押して");
+    Check($"FindChild(押して) = {btn}", btn?.Text == "押してね");
+    Check("GetStr = 初期テキスト", win.GetStr() == "初期テキスト");
+
+    Step("Window.Click: フォーム内相対座標でボタンをクリック");
+    var b = btn!.Bounds;
+    win.Click(b.X - win.X + 10, b.Y - win.Y + 10);
+    Sleep(1);
+
+    Step("PostClick: 非アクティブのままチェックA を OFF");
+    var chkA = win.FindChild("チェックA")!;
+    var cb = chkA.Bounds;
+    win.PostClick(cb.X - win.X + 8, cb.Y - win.Y + cb.Height / 2);
+    Sleep(1);
+    Check("チェックA = 0", win.ChkBtn("チェックA") == 0);
+
+    Step("Window.PosAcc: ボタン位置の文字列");
+    Check($"PosAcc = {win.PosAcc(b.X - win.X + 10, b.Y - win.Y + 10)}", win.PosAcc(b.X - win.X + 10, b.Y - win.Y + 10) == "押してね");
+    Sleep(1);
+}
+finally
+{
+    FukidasiClear();
+    win.Close();
+    win.WaitClose(3);
+}
+Print("完了");

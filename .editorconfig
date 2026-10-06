@@ -1,0 +1,12 @@
+root = true
+
+[*]
+end_of_line = crlf
+charset = utf-8
+insert_final_newline = true
+
+
+# IDE2001: 埋め込みステートメントは、独自の行に記述する必要があります
+dotnet_diagnostic.IDE2001.severity = none
+
+dotnet_diagnostic.IDE0003.severity = none

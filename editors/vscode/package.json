@@ -1,0 +1,84 @@
+{
+  "name": "csws",
+  "displayName": "CsWSC",
+  "description": "CsWSC スクリプト (.csws) の補完・ホバー・引数ヒント・エラー表示・実行",
+  "version": "0.1.0",
+  "publisher": "kttFox",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kttFox/CsWSC.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "languages": [
+      {
+        "id": "csws",
+        "aliases": [
+          "CsWSC",
+          "csws"
+        ],
+        "extensions": [
+          ".csws"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "csws",
+        "scopeName": "source.csws",
+        "path": "./syntaxes/csws.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "csws.run",
+        "title": "CsWSC: スクリプトを実行",
+        "icon": "$(play)"
+      },
+      {
+        "command": "csws.restartServer",
+        "title": "CsWSC: 解析サーバーを再起動"
+      }
+    ],
+    "menus": {
+      "editor/title/run": [
+        {
+          "command": "csws.run",
+          "when": "editorLangId == csws"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "csws.run",
+        "key": "f5",
+        "when": "editorLangId == csws && !inDebugMode"
+      }
+    ],
+    "configuration": {
+      "title": "CsWSC",
+      "properties": {
+        "csws.exePath": {
+          "type": "string",
+          "default": "",
+          "description": "スクリプト実行に使う CsWSC.exe のパス。"
+        },
+        "csws.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "解析サーバー (csws-server.exe) のパス。空なら拡張機能に同梱のものを使う。"
+        }
+      }
+    }
+  }
+}

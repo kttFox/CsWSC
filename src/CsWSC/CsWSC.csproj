@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- exe (CsWSC.UI → CsWSC.exe) と名前が衝突しないよう dll 名は CsWSC.Core のままにする -->
+    <AssemblyName>CsWSC.Core</AssemblyName>
+    <RootNamespace>CsWSC</RootNamespace>
+    <DebugType>embedded</DebugType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- UI Automation (高レベル記録 / ClickItem) 用 -->
+    <UseWPF>true</UseWPF>
+    <!-- VS Code 拡張のホバー・補完で説明を表示するため -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.9.0" />
+    <!-- 全部大文字の別名 (FUKIDASI など) を生成する -->
+    <ProjectReference Include="../CsWSC.Generators/CsWSC.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

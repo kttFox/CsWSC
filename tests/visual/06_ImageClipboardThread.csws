@@ -1,0 +1,80 @@
+// 目視テスト 06: 画像・クリップボード・プロセス・スレッド・停止
+// 対象: SaveImg / ChkImg / Window.SaveImg / Window.ChkImg / GetClipboard / SetClipboard /
+//       ExecWait / Thread / Cancellation
+
+Balloon? stepBalloon = null;
+void Step(string s)
+{
+    Print("▶ " + s);
+    if (stepBalloon is { IsClosed: false }) stepBalloon.Update(s);
+    else stepBalloon = Fukidasi(s, 20, 20, BalloonTail.None, 12);
+    Sleep(1.5);
+}
+void Check(string name, bool ok) => Print($"  [{(ok ? "OK" : "NG")}] {name}");
+
+var dir = Path.Combine(Path.GetTempPath(), "CsWSC_VisualTest");
+Directory.CreateDirectory(dir);
+Print($"出力先: {dir}");
+
+Step("SaveImg: 画面全体と左上 200x100 を保存");
+var full = Path.Combine(dir, "full.png");
+var part = Path.Combine(dir, "part.png");
+FukidasiClear();
+SaveImg(full);
+SaveImg(part, new Rectangle(0, 0, 200, 100));
+Check("full.png 作成", File.Exists(full));
+Check("part.png 作成", File.Exists(part));
+
+Step("ChkImg: 左上の切り抜きを画面から探す (0,0 付近のはず)");
+FukidasiClear();
+var found = ChkImg(part, tolerance: 10);
+Check($"ChkImg = {found?.ToString() ?? "null"}", found == new Point(0, 0));
+
+Step("ChkImg: 範囲指定で見つからない場合は null");
+FukidasiClear();
+Check("範囲外 → null", ChkImg(part, 0, new Rectangle(500, 500, 300, 300)) == null);
+
+Step("Window.SaveImg / ChkImg: ノートパッド");
+var np = Exec("notepad.exe");
+if (np != null)
+{
+    np.Move(200, 200, 500, 300);
+    np.SendText("画像テスト ★★★");
+    Sleep(0.5);
+    var wimg = Path.Combine(dir, "notepad.png");
+    np.SaveImg(wimg);
+    Check("notepad.png 作成", File.Exists(wimg));
+    Check($"Window.ChkImg = {np.ChkImg(wimg, 10)}", np.ChkImg(wimg, 10) != null);
+    np.Kill();
+}
+
+Step("SetClipboard / GetClipboard");
+var before = GetClipboard();
+SetClipboard("CsWSC クリップボードテスト 🎉");
+Check($"GetClipboard = {GetClipboard()}", GetClipboard() == "CsWSC クリップボードテスト 🎉");
+SetClipboard(before);
+
+Step("ExecWait: cmd /c exit 7 の終了コード");
+Check("ExecWait = 7", ExecWait("cmd.exe", "/c exit 7") == 7);
+
+Step("Thread: 別スレッドで吹き出しカウントダウン (メインは Print)");
+Thread(() =>
+{
+    using var tb = Fukidasi("スレッド: 5", 600, 300);
+    for (var i = 4; i > 0; i--) { Sleep(1); tb.Update($"スレッド: {i}"); }
+    Sleep(1);
+});
+for (var i = 0; i < 5; i++) { Print($"  メイン {i}"); Sleep(1); }
+Sleep(0.5);
+
+Step("Cancellation: 停止ボタン/Pause キーで止まる重いループ (10 秒)。止めずに待てば完了します");
+var sw = System.Diagnostics.Stopwatch.StartNew();
+while (sw.Elapsed.TotalSeconds < 10)
+{
+    Cancellation.ThrowIfCancellationRequested();
+    Fukidasi($"重いループ中… {10 - sw.Elapsed.TotalSeconds:F0} 秒\nPause キーで停止", 20, 20, BalloonTail.None, 12);
+    System.Threading.Thread.Sleep(200);
+}
+
+FukidasiClear();
+Print("完了 (画像は出力先フォルダで確認してください)");

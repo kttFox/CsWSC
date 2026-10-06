@@ -1,0 +1,91 @@
+// 目視テスト 04: ウィンドウ操作・情報
+// 対象: Exec / GetWindow / WaitWindow / GetAllWindows / ActiveWindow / WindowFromPoint /
+//       WindowUnderMouse / ControlUnderMouse / Window の情報・状態・制御
+
+Balloon? stepBalloon = null;
+void Step(string s)
+{
+    Print("▶ " + s);
+    if (stepBalloon is { IsClosed: false }) stepBalloon.Update(s);
+    else stepBalloon = Fukidasi(s, 20, 20, BalloonTail.None, 12);
+    Sleep(1.5);
+}
+void Check(string name, bool ok) => Print($"  [{(ok ? "OK" : "NG")}] {name}");
+
+Step("Exec: ノートパッドを起動");
+var np = Exec("notepad.exe");
+if (np == null) { Print("notepad が起動できませんでした"); return; }
+Print($"  {np}");
+
+Step("GetWindow / WaitWindow: タイトル部分一致で取得");
+Check("GetWindow(\"メモ帳\")", GetWindow("メモ帳") == np);
+Check("WaitWindow(\"メモ帳\", \"Notepad\")", WaitWindow("メモ帳", "Notepad", 3) == np);
+Check("GetWindow 存在しない → null", GetWindow("存在しないウィンドウ_xyz", timeout: 0.5) == null);
+
+Step("GetAllWindows: クラス Notepad の一覧");
+foreach (var w in GetAllWindows(className: "Notepad")) Print($"  {w}");
+
+Step("情報プロパティ");
+np.Activate();
+Print($"  Title={np.Title} Class={np.ClassName}");
+Print($"  Bounds={np.Bounds} Client={np.ClientBounds}");
+Print($"  PID={np.ProcessId} Name={np.ProcessName} Path={np.ProcessPath} Parent={np.Parent?.ToString() ?? "null"}");
+Check("Exists/Visible/IsActive/Enabled", np.Exists && np.Visible && np.IsActive && np.Enabled && !np.Busy);
+Check("ActiveWindow == np", ActiveWindow == np);
+
+Step("Move: 左上 (100,100) へ 500x300");
+np.Move(100, 100, 500, 300);
+Sleep(1);
+Check($"Bounds={np.Bounds}", np.X == 100 && np.Y == 100 && np.Width == 500 && np.Height == 300);
+
+Step("Move: 位置だけ (400,200) へ");
+np.Move(400, 200);
+Sleep(1);
+
+Step("Resize: 800x500");
+np.Resize(800, 500);
+Sleep(1);
+
+Step("WindowFromPoint / WindowUnderMouse / ControlUnderMouse");
+MouseMove(np.X + 200, np.Y + 200);
+Sleep(0.3);
+Check("WindowFromPoint == np", WindowFromPoint(np.X + 200, np.Y + 200) == np);
+Check("WindowUnderMouse == np", WindowUnderMouse == np);
+Print($"  ControlUnderMouse = {ControlUnderMouse} ({ControlUnderMouse?.ClassName})");
+
+Step("Minimize → Maximize → Restore");
+np.Minimize(); Sleep(1); Check("Minimized", np.Minimized);
+np.Maximize(); Sleep(1); Check("Maximized", np.Maximized);
+np.Restore();  Sleep(1); Check("Restore", !np.Minimized && !np.Maximized);
+
+Step("Hide → Show");
+np.Hide(); Sleep(1); Check("Hide", !np.Visible);
+np.Show(); Sleep(1); Check("Show", np.Visible);
+
+Step("SetTopmost: 最前面 ON → OFF");
+np.SetTopmost(); Sleep(1); Check("Topmost ON", np.Topmost);
+np.SetTopmost(false); Sleep(1); Check("Topmost OFF", !np.Topmost);
+
+Step("SetEnabled(false): 3 秒間クリックできなくなります");
+np.SetEnabled(false); Check("Enabled = false", !np.Enabled);
+Sleep(3);
+np.SetEnabled(); Check("Enabled = true", np.Enabled);
+
+Step("Activate / WaitActive");
+np.Activate();
+Check("WaitActive", np.WaitActive(2));
+
+Step("Close: 未編集なので閉じます → WaitClose");
+np.Close();
+Check("WaitClose", np.WaitClose(3));
+Check("Exists = false", !np.Exists);
+
+Step("Kill: 新しいノートパッドを強制終了");
+var np2 = Exec("notepad.exe");
+np2?.SendText("未保存の内容");
+Sleep(1);
+np2?.Kill();
+Check("Kill 後 Exists = false", np2 != null && np2.WaitClose(3));
+
+FukidasiClear();
+Print("完了");

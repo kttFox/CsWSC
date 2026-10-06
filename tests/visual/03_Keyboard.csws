@@ -1,0 +1,68 @@
+// 目視テスト 03: キーボード (ノートパッドで確認)
+// 対象: Kbd / Hotkey / SendText / Window.SendText / SendKeys / ScKey / GetStr / SendStr / PostKey / PostText
+
+Balloon? stepBalloon = null;
+void Step(string s)
+{
+    Print("▶ " + s);
+    if (stepBalloon is { IsClosed: false }) stepBalloon.Update(s);
+    else stepBalloon = Fukidasi(s, 20, 20, BalloonTail.None, 12);
+    Sleep(1.5);
+}
+void Check(string name, bool ok) => Print($"  [{(ok ? "OK" : "NG")}] {name}");
+
+var np = Exec("notepad.exe");
+if (np == null) { Print("notepad が起動できませんでした"); return; }
+np.Activate().Move(200, 150, 700, 450);
+
+Step("SendText: 日本語・英数字・記号を入力");
+SendText("こんにちは CsWSC! #$%&()\r\n");
+
+Step("Kbd: A B C を 1 キーずつ");
+Kbd(Keys.A); Kbd(Keys.B); Kbd(Keys.C); Kbd(Keys.Enter);
+
+Step("Kbd Down/Up: Shift を押しながら x y z (大文字になる)");
+Kbd(Keys.ShiftKey, KeyAction.Down);
+Kbd(Keys.X); Kbd(Keys.Y); Kbd(Keys.Z);
+Kbd(Keys.ShiftKey, KeyAction.Up);
+Kbd(Keys.Enter);
+
+Step("Window.SendText / SendKeys: Ctrl+A で全選択");
+np.SendText("Window.SendText で入力\r\n");
+np.SendKeys(Keys.ControlKey, Keys.A);
+Sleep(1);
+
+Step("Hotkey: Ctrl+End → Ctrl+Home (選択解除して先頭へ)");
+Hotkey(Keys.ControlKey, Keys.End);
+Hotkey(Keys.ControlKey, Keys.Home);
+Sleep(0.5);
+
+Step("GetStr: エディットの内容を取得");
+var text = np.GetStr();
+Print(text);
+Check("GetStr に入力文字が含まれる", text.Contains("こんにちは") && text.Contains("abc") && text.Contains("XYZ"));
+
+Step("SendStr: 内容を置き換え → 追記");
+np.SendStr("SendStr で置き換えました");
+Sleep(1);
+np.SendStr("\r\n追記しました", append: true);
+Sleep(1);
+Check("SendStr 結果", np.GetStr() == "SendStr で置き換えました\r\n追記しました");
+
+Step("PostText / PostKey: 別ウィンドウを前面にしたまま裏で入力");
+np.Minimize();
+Sleep(0.5);
+np.PostKey(Keys.End);
+np.PostText("\r\n裏から PostText");
+Sleep(0.5);
+np.Restore().Activate();
+Sleep(1);
+Check("PostText 反映", np.GetStr().EndsWith("裏から PostText"));
+
+Step("ScKey: Ctrl+Z で元に戻す");
+np.ScKey(Keys.ControlKey, Keys.Z);
+Sleep(1.5);
+
+FukidasiClear();
+np.Kill();
+Print("完了");

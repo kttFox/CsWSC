@@ -1,0 +1,61 @@
+// 目視テスト 01: 出力・待機・ダイアログ・吹き出し
+// 対象: Print / Sleep / MsgBox / InputBox / Fukidasi
+
+Balloon? stepBalloon = null;
+void Step(string s)
+{
+    Print("▶ " + s);
+    if (stepBalloon is { IsClosed: false }) stepBalloon.Update(s);
+    else stepBalloon = Fukidasi(s, 20, 20, BalloonTail.None, 12);
+    Sleep(1.5);
+}
+void Check(string name, bool ok) => Print($"  [{(ok ? "OK" : "NG")}] {name}");
+
+Step("Print: PRINT 窓に文字・数値・null が出ます");
+Print("文字列");
+Print(123.45);
+Print(null);
+Print(new[] { 1, 2, 3 }.Sum());
+
+Step("Sleep: 約 2 秒止まります");
+var sw = System.Diagnostics.Stopwatch.StartNew();
+Sleep(2);
+Check($"Sleep(2) 実測 {sw.Elapsed.TotalSeconds:F2} 秒", Math.Abs(sw.Elapsed.TotalSeconds - 2) < 0.3);
+
+Step("MsgBox: OK だけのダイアログ → OK を押してください");
+Check("MsgBox OK", MsgBox("OK を押してください") == DialogResult.OK);
+
+Step("MsgBox: はい/いいえ → 「はい」を押してください");
+Check("MsgBox YesNo (はい)", MsgBox("「はい」を押してください", MessageBoxButtons.YesNo) == DialogResult.Yes);
+
+Step("InputBox: 既定値『abc』のまま OK を押してください");
+var input = InputBox("そのまま OK", "abc");
+Check($"InputBox 戻り値 = \"{input}\"", input == "abc");
+
+Step("Fukidasi: 4 方向のしっぽ (マウスカーソルを指す)");
+var p = MousePos;
+foreach (var tail in new[] { BalloonTail.TopLeft, BalloonTail.TopRight, BalloonTail.BottomLeft, BalloonTail.BottomRight })
+{
+    using (Fukidasi($"しっぽ: {tail}\n(マウス位置を指す)", p.X, p.Y, tail)) Sleep(1.2);
+}
+
+Step("Fukidasi: 色・フォントサイズ指定");
+using (Fukidasi("大きい白文字・紺背景", 300, 300, BalloonTail.None, 20, Color.Navy, Color.White)) Sleep(2);
+
+Step("Fukidasi: 複数同時に表示し、1 つずつ消す");
+var b1 = Fukidasi("1 つ目", 300, 200);
+var b2 = Fukidasi("2 つ目", 500, 200, BalloonTail.TopRight, 10, Color.LightGreen);
+var b3 = Fukidasi("3 つ目", 700, 200, BalloonTail.None, 10, Color.LightBlue);
+Sleep(1.5);
+b2.Update("2 つ目 (更新・移動)", 500, 300);
+Sleep(1.5);
+b1.Close();
+Check("b1.IsClosed", b1.IsClosed);
+Sleep(1);
+using (Fukidasi("using の間だけ表示", 300, 400)) Sleep(1.5);
+Sleep(0.5);
+
+Step("Fukidasi: FukidasiClear で全部消える");
+FukidasiClear();
+Sleep(1);
+Print("完了 — 吹き出しが消えていれば OK");

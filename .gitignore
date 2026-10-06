@@ -361,3 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# VS Code 拡張のビルド成果物
+editors/vscode/server/
+artifacts/
+*.vsix
