@@ -1,0 +1,87 @@
+// 目視テスト 01: 出力・待機・ダイアログ・吹き出し
+// 対象: Print / PRINT (大文字エイリアス) / Sleep / MessageBox / InputBox / Balloon / Balloon.Update
+
+Balloon? stepBalloon = null;
+void Step(string s)
+{
+    Print("▶ " + s);
+    if (stepBalloon is { IsClosed: false }) stepBalloon.Update(s);
+    else stepBalloon = Balloon(s, new Point(20, 20), BalloonTail.None, 12);
+}
+void Check(string name, bool ok) => Print($"  [{(ok ? "OK" : "NG")}] {name}");
+
+Step("Print: PRINT 窓に文字・数値・null が出ます");
+Print("文字列");
+Print(123.45);
+Print(null);
+Print(new[] { 1, 2, 3 }.Sum());
+
+Step("大文字エイリアス: PRINT / SLEEP (UWSC 風の表記)");
+PRINT("PRINT で出力");
+SLEEP(500);
+
+Step("Sleep: 約 2 秒 (2000 ミリ秒) 止まります");
+var sw = System.Diagnostics.Stopwatch.StartNew();
+Sleep(2000);
+Check($"Sleep(2000) 実測 {sw.ElapsedMilliseconds} ms", Math.Abs(sw.ElapsedMilliseconds - 2000) < 300);
+
+Step("MessageBox: OK だけのダイアログ → OK を押してください");
+Check("MessageBox OK", MessageBox("OK を押してください") == MsgResult.OK);
+
+Step("MessageBox: はい/いいえ・質問アイコン → 「はい」を押してください");
+Check("MessageBox YesNo (はい)", MessageBox("「はい」を押してください", "CsWSC", MsgButtons.YesNo, icon: MsgIcon.Question) == MsgResult.Yes);
+
+Step("MessageBox: はい/いいえ/キャンセル・警告アイコン → 「キャンセル」を押してください");
+Check("MessageBox YesNoCancel (キャンセル)", MessageBox("「キャンセル」を押してください", buttons: MsgButtons.YesNoCancel, icon: MsgIcon.Warning) == MsgResult.Cancel);
+
+Step("MessageBox: 再試行/キャンセル・エラーアイコン → 「再試行」を押してください");
+Check("MessageBox RetryCancel (再試行)", MessageBox("「再試行」を押してください", buttons: MsgButtons.RetryCancel, icon: MsgIcon.Error) == MsgResult.Retry);
+
+Step("MessageBox: 中止/再試行/無視・情報アイコン → 「無視」を押してください");
+Check("MessageBox AbortRetryIgnore (無視)", MessageBox("「無視」を押してください", buttons: MsgButtons.AbortRetryIgnore, icon: MsgIcon.Information) == MsgResult.Ignore);
+
+Step("MessageBox: timeoutMs 3000 → 何も押さずに 3 秒待ってください");
+sw.Restart();
+var tr = MessageBox("押さずに待つと 3 秒で閉じます", "タイムアウト", MsgButtons.OKCancel, icon: MsgIcon.Information, timeoutMs: 3000);
+Check($"MessageBox タイムアウト = {tr} ({sw.ElapsedMilliseconds} ms)", tr == MsgResult.Timeout);
+
+Step("InputBox: 既定値『abc』のまま OK を押してください");
+var input = InputBox("そのまま OK", "abc");
+Check($"InputBox 戻り値 = \"{input}\"", input == "abc");
+
+Step("Balloon: 4 方向のしっぽ (マウスカーソルを指す)");
+var p = MousePosition;
+Balloon($"しっぽ: {BalloonTail.TopLeft}\n(マウス位置を指す)", new Point(p.X+20, p.Y+20), BalloonTail.TopLeft);
+Balloon($"しっぽ: {BalloonTail.TopRight}\n(マウス位置を指す)", new Point(p.X-20, p.Y+20), BalloonTail.TopRight);
+Balloon($"しっぽ: {BalloonTail.BottomLeft}\n(マウス位置を指す)", new Point(p.X+20, p.Y-20), BalloonTail.BottomLeft);
+Balloon($"しっぽ: {BalloonTail.BottomRight}\n(マウス位置を指す)", new Point(p.X-20, p.Y-20), BalloonTail.BottomRight);
+Sleep(1200);
+BalloonClear();
+
+Step("Balloon: 色・フォントサイズ指定");
+using (Balloon("大きい白文字・紺背景", new Point(300, 300), BalloonTail.None, 20, null, Color.White, Color.Navy)) Sleep(2000);
+
+Step("Balloon: x, y 版・fontName (MS ゴシック)・opacity 0.5 (半透明)");
+using (Balloon("x,y 版 / MS ゴシック / 半透明", 300, 300, BalloonTail.None, 16, fontName: "MS Gothic", opacity: 0.5)) Sleep(2000);
+
+Step("Balloon: 複数同時に表示し、1 つずつ消す");
+var b1 = Balloon("1 つ目", new Point(300, 200));
+var b2 = Balloon("2 つ目", new Point(500, 200), BalloonTail.TopRight, 10, backColor: Color.LightGreen);
+var b3 = Balloon("3 つ目", new Point(700, 200), BalloonTail.None, 10, backColor: Color.LightBlue);
+Sleep(1500);
+b2.Update("2 つ目 (更新・移動)", new Point(500, 300));
+Sleep(1500);
+b3.Update("3 つ目 (x,y 版 Update で移動)", 700, 300);
+Sleep(1500);
+b3.Update("3 つ目 (文字だけ更新)");
+Sleep(1500);
+b1.Close();
+Check("b1.IsClosed", b1.IsClosed);
+Sleep(1000);
+using (Balloon("using の間だけ表示", new Point(300, 400))) Sleep(1500);
+Sleep(500);
+
+Step("Balloon: BalloonClear で全部消える");
+BalloonClear();
+Sleep(1000);
+Print("完了 — 吹き出しが消えていれば OK");

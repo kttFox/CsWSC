@@ -1,0 +1,16 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- 製品バージョン (AssemblyInformationalVersion) にコミットのハッシュ (+6ef16f8...) を付けない。Source Link には影響しない -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <!--
+    Release ビルドでは PDB にこの PC のパス (C:\Repos\CsWSC\...) を含めず、/_/... に置き換える。
+    ソースは Source Link (GitHub) から取得できるので、パスが無くても「定義へ移動」やデバッグでソースを開ける。
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+</Project>

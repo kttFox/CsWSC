@@ -1,0 +1,87 @@
+// 目視テスト 02: マウス
+// 対象: Move / MousePosition / Mouse / Wheel / PeekColor / MouseCursor / TextAtPoint /
+//       Point 版オーバーロード / MouseOrigin
+// 注意: 実際にマウスが動きます。途中で止めるには Pause キー。
+
+Balloon? stepBalloon = null;
+void Step(string s)
+{
+    Print("▶ " + s);
+    if (stepBalloon is { IsClosed: false }) stepBalloon.Update(s);
+    else stepBalloon = Balloon(s, new Point(20, 20), BalloonTail.None, 12);
+    Sleep(1500);
+}
+void Check(string name, bool ok) => Print($"  [{(ok ? "OK" : "NG")}] {name}");
+
+var screen = Screen.PrimaryScreen!.Bounds;
+var cx = screen.Width / 2;
+var cy = screen.Height / 2;
+
+Step("Move: 画面中央で四角形を描きます");
+foreach (var (dx, dy) in new[] { (-200, -150), (200, -150), (200, 150), (-200, 150), (-200, -150) })
+{
+    Move(cx + dx, cy + dy);
+    Sleep(400);
+}
+Check($"MousePosition = {MousePosition}", MousePosition == new Point(cx - 200, cy - 150));
+
+Step("Move(Point, delayMs): 中央へ 800 ms かけてなめらかに移動");
+Move(new Point(cx, cy), 800);
+Check($"MousePosition = {MousePosition}", MousePosition == new Point(cx, cy));
+
+// テスト用ノートパッドでクリック・ホイールを確認
+var np = Exec("notepad.exe");
+if (np == null) { Print("notepad が起動できませんでした"); return; }
+np.Activate().MoveWindow(cx - 300, cy - 200, 600, 400);
+np.SendText(string.Join("\r\n", Enumerable.Range(1, 100).Select(i => $"{i} 行目")));
+Keyboard(Keys.ControlKey, KeyAction.Down); Keyboard(Keys.Home); Keyboard(Keys.ControlKey, KeyAction.Up);
+
+Step("MouseCursor: テキスト上のカーソル形状 (IBeam のはず)");
+Move(cx, cy);
+Sleep(300);
+Check($"MouseCursor = {MouseCursor()}", MouseCursor() == CursorKind.IBeam);
+
+Step("Wheel: 下に 5 ノッチ → 上に 5 ノッチ スクロールします");
+Wheel(-5); Sleep(1000);
+Wheel(5); Sleep(1000);
+
+Step("Mouse(Click): 右クリックでコンテキストメニューが出ます");
+Mouse(MouseButton.Right, KeyAction.Click, cx, cy);
+Sleep(1500);
+Keyboard(Keys.Escape);
+
+Step("Mouse(Click, Point): Point 版で右クリック → メニューが出ます");
+Mouse(MouseButton.Right, KeyAction.Click, new Point(cx + 50, cy));
+Sleep(1500);
+Keyboard(Keys.Escape);
+
+Step("Mouse: 左ボタン Down → 移動 → Up で範囲選択します");
+Mouse(MouseButton.Left, KeyAction.Down, cx - 250, cy - 120);
+Move(cx + 100, cy + 50);
+Sleep(300);
+Mouse(MouseButton.Left, KeyAction.Up, null);
+Sleep(1500);
+
+Step("PeekColor: ノートパッド本文 (白) の色");
+var c = PeekColor(np.ClientBounds.Right - 40, np.ClientBounds.Bottom - 40);
+Print($"  PeekColor = {c}");
+
+Step("TextAtPoint: マウス下のコントロール文字列 (タイトルバー)");
+Move(np.X + 150, np.Y + 15);
+Sleep(500);
+Print($"  TextAtPoint = \"{TextAtPoint(np.X + 150, np.Y + 15)}\"");
+
+Step("MouseOrigin(np): 座標がノートパッドのクライアント左上基準になる (左上角付近へ移動)");
+using (MouseOrigin(np))
+{
+    Move(10, 10);
+    Sleep(1000);
+}
+Check($"MouseOrigin 内 (10,10) → 画面 {MousePosition}", MousePosition == new Point(np.ClientBounds.X + 10, np.ClientBounds.Y + 10));
+Move(10, 10);
+Sleep(500);
+Check($"using を抜けると画面基準に戻る → {MousePosition}", MousePosition == new Point(10, 10));
+
+BalloonClear();
+np.Kill();
+Print("完了");

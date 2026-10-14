@@ -1,0 +1,84 @@
+// 目視テスト 03: キーボード (ノートパッドで確認)
+// 対象: Keyboard / ShortcutKey / SendText / Window.SendText / Window.ShortcutKey / GetText / SetText / PostKey / PostText /
+//       GetKeyState / GetToggleState
+
+Balloon? stepBalloon = null;
+void Step(string s)
+{
+    Print("▶ " + s);
+    if (stepBalloon is { IsClosed: false }) stepBalloon.Update(s);
+    else stepBalloon = Balloon(s, new Point(20, 20), BalloonTail.None, 12);
+    Sleep(1500);
+}
+void Check(string name, bool ok) => Print($"  [{(ok ? "OK" : "NG")}] {name}");
+
+var np = Exec("notepad.exe");
+if (np == null) { Print("notepad が起動できませんでした"); return; }
+np.Activate().MoveWindow(200, 150, 700, 450);
+
+Step("SendText: 日本語・英数字・記号を入力");
+SendText("こんにちは CsWSC! #$%&()\r\n");
+
+Step("Keyboard: A B C を 1 キーずつ");
+Keyboard(Keys.A); Keyboard(Keys.B); Keyboard(Keys.C); Keyboard(Keys.Enter);
+
+Step("Keyboard Down/Up: Shift を押しながら x y z (大文字になる)");
+Keyboard(Keys.ShiftKey, KeyAction.Down);
+Keyboard(Keys.X); Keyboard(Keys.Y); Keyboard(Keys.Z);
+Keyboard(Keys.ShiftKey, KeyAction.Up);
+Keyboard(Keys.Enter);
+
+Step("Window.SendText / Window.ShortcutKey: Ctrl+A で全選択");
+np.SendText("Window.SendText で入力\r\n");
+np.ShortcutKey(Keys.ControlKey, Keys.A);
+Sleep(1000);
+
+Step("ShortcutKey: Ctrl+End → Ctrl+Home (選択解除して先頭へ)");
+ShortcutKey(Keys.ControlKey, Keys.End);
+ShortcutKey(Keys.ControlKey, Keys.Home);
+Sleep(500);
+
+Step("GetText: エディットの内容を取得");
+var text = np.GetText();
+Print(text);
+Check("GetText に入力文字が含まれる", text.Contains("こんにちは") && text.Contains("abc") && text.Contains("XYZ"));
+
+Step("SetText: 内容を置き換え → 追記");
+np.SetText("SetText で置き換えました");
+Sleep(1000);
+np.SetText("\r\n追記しました", append: true);
+Sleep(1000);
+Check("SetText 結果", np.GetText() == "SetText で置き換えました\r\n追記しました");
+
+Step("PostText / PostKey: 最小化したまま裏で入力");
+np.Minimize();
+Sleep(500);
+np.PostKey(Keys.End);
+np.PostText("\r\n裏から PostText");
+Sleep(500);
+np.Restore().Activate();
+Sleep(1000);
+Check("PostText 反映", np.GetText().EndsWith("裏から PostText"));
+
+Step("Window.ShortcutKey: Ctrl+Z で元に戻す");
+np.ShortcutKey(Keys.ControlKey, Keys.Z);
+Sleep(1500);
+
+Step("GetKeyState: Shift を Keyboard で押している間だけ true");
+Keyboard(Keys.ShiftKey, KeyAction.Down);
+Check("Shift 押下中 → true", GetKeyState(Keys.ShiftKey));
+Keyboard(Keys.ShiftKey, KeyAction.Up);
+Check("Shift 解放後 → false", !GetKeyState(Keys.ShiftKey));
+
+Step("GetToggleState: NumLock の状態 (トグルして元に戻す)");
+var num = GetToggleState(Keys.NumLock);
+Print($"  NumLock = {num}");
+Keyboard(Keys.NumLock); Sleep(300);
+Check("NumLock 反転", GetToggleState(Keys.NumLock) != num);
+Keyboard(Keys.NumLock); Sleep(300);
+Check("NumLock 元に戻った", GetToggleState(Keys.NumLock) == num);
+Print($"  CapsLock = {GetToggleState(Keys.CapsLock)} / ScrollLock = {GetToggleState(Keys.Scroll)}");
+
+BalloonClear();
+np.Kill();
+Print("完了");

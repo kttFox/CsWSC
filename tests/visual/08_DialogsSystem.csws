@@ -1,0 +1,124 @@
+// 目視テスト 08: 選択ダイアログ・PRINT 窓・入力ロック・外部コマンド・COM・音声・終了
+// 対象: SelectBox / SelectBoxMulti / PopupMenu / LogPrint / LogClear / LockHard / LockHardEx /
+//       Cmd / PowerShell / CreateOleObject / Speak / 大文字エイリアス / ExitScript
+// ダイアログ操作あり。システム設定やファイルを変更する操作はしない。
+
+Balloon? stepBalloon = null;
+void Step(string s)
+{
+    Print("▶ " + s);
+    if (stepBalloon is { IsClosed: false }) stepBalloon.Update(s);
+    else stepBalloon = Balloon(s, new Point(20, 20), BalloonTail.None, 12);
+    Sleep(1500);
+}
+void Check(string name, bool ok) => Print($"  [{(ok ? "OK" : "NG")}] {name}");
+
+string[] fruits = ["りんご", "みかん", "ぶどう"];
+
+Step("SelectBox (ボタン): 「みかん」を押してください");
+var s1 = SelectBox("「みかん」を押してください", fruits);
+Check($"SelectBox = {s1}", s1 == 1);
+
+Step("SelectBox (ラジオ): 「ぶどう」を選んで OK");
+var s2 = SelectBox(SelectKind.Radio, "「ぶどう」を選んで OK", fruits);
+Check($"SelectBox(Radio) = {s2}", s2 == 2);
+
+Step("SelectBox (コンボ): 「りんご」を選んで OK");
+var s3 = SelectBox(SelectKind.Combo, "「りんご」を選んで OK", fruits);
+Check($"SelectBox(Combo) = {s3}", s3 == 0);
+
+Step("SelectBox (リスト): timeoutMs 3000 → 何もせず 3 秒待ってください");
+var s4 = SelectBox(SelectKind.List, "何もせずに待つと 3 秒で閉じます", fruits, timeoutMs: 3000);
+Check($"SelectBox タイムアウト = {s4}", s4 == -1);
+
+Step("SelectBoxMulti (チェック): 「りんご」と「ぶどう」をチェックして OK");
+var m1 = SelectBoxMulti("「りんご」と「ぶどう」をチェックして OK", fruits);
+Check($"SelectBoxMulti = [{string.Join(",", m1)}]", m1.SequenceEqual([0, 2]));
+
+Step("SelectBoxMulti (リスト): Ctrl を押しながら「みかん」「ぶどう」を選んで OK");
+var m2 = SelectBoxMulti("Ctrl で「みかん」「ぶどう」を選んで OK", fruits, asList: true);
+Check($"SelectBoxMulti(asList) = [{string.Join(",", m2)}]", m2.SequenceEqual([1, 2]));
+
+Step("SelectBoxMulti: timeoutMs 3000 → 何もせず 3 秒待ってください");
+var m3 = SelectBoxMulti("何もせずに待つと 3 秒で閉じます", fruits, timeoutMs: 3000);
+Check($"SelectBoxMulti タイムアウト = {m3.Length} 件", m3.Length == 0);
+
+Step("PopupMenu: (400,300) にメニュー → 「みかん」を選んでください");
+var pm = PopupMenu(fruits, 400, 300);
+Check($"PopupMenu = {pm ?? "null"}", pm == "みかん");
+
+Step("PopupMenu(Point): マウス位置以外 (500,300) → Esc でキャンセルしてください");
+var pm2 = PopupMenu(fruits, new Point(500, 300));
+Check($"PopupMenu キャンセル = {pm2 ?? "null"}", pm2 == null);
+
+Step("LogPrint: PRINT 窓を (100,100) 600x300 へ移動");
+LogPrint(true, 100, 100, 600, 300);
+Sleep(1500);
+LogPrint(true, new Point(200, 150));
+Print("  Point 版で (200,150) へ移動しました");
+Sleep(1500);
+
+Step("LogPrint(false): PRINT 窓が 2 秒隠れて戻ります");
+LogPrint(false);
+Sleep(2000);
+LogPrint(true);
+
+Step("LogClear: PRINT 窓の内容が消えます");
+Print("  このあと消えます");
+Sleep(1000);
+LogClear();
+Print("LogClear 後の最初の行 (これより上が消えていれば OK)");
+
+Step("LockHard: 3 秒間マウス・キーボードがロックされます (Pause で非常停止可)");
+LockHard(true);
+try
+{
+    Move(400, 400);
+    Balloon("ロック中: マウスを動かしても効かないこと", 400, 400, BalloonTail.TopLeft);
+    Sleep(3000);
+}
+finally { LockHard(false); BalloonClear(); }
+Print("  ロック解除 — マウスが動けば OK");
+
+Step("LockHardEx(Mouse): 3 秒間マウスだけロック (キーボードは効く)");
+LockHardEx(null, LockMode.Mouse);
+try { Sleep(3000); }
+finally { LockHardEx(null, LockMode.None); }
+Print("  解除しました");
+
+Step("Cmd: echo とパイプの結果を取得");
+var cmdOut = Cmd("echo CsWSC & ver | findstr /i windows");
+Print($"  {cmdOut.Trim()}");
+Check("Cmd 出力に CsWSC を含む", cmdOut.Contains("CsWSC"));
+
+Step("PowerShell: 計算結果を取得");
+var psOut = PowerShell("1 + 2; $PSVersionTable.PSVersion.Major");
+Print($"  {psOut.Trim().Replace("\r\n", " / ")}");
+Check("PowerShell 出力が 3 で始まる", psOut.TrimStart().StartsWith("3"));
+
+Step("CreateOleObject: Scripting.FileSystemObject で TEMP フォルダの存在確認 (読み取りのみ)");
+var fso = CreateOleObject("Scripting.FileSystemObject");
+bool tempExists = fso.FolderExists(Path.GetTempPath());
+Check($"FSO.FolderExists(TEMP) = {tempExists}", tempExists);
+
+Step("CreateOleObject: WScript.Shell で環境変数を展開");
+var sh = CreateOleObject("WScript.Shell");
+string windir = sh.ExpandEnvironmentStrings("%WINDIR%");
+Check($"ExpandEnvironmentStrings = {windir}", windir.Length > 0 && !windir.Contains('%'));
+
+Step("Speak: 「こんにちは、シーシャープ ダブリュエスシーです」と読み上げます");
+Speak("こんにちは、シーシャープ ダブリュエスシーです");
+Step("Speak: 速く・小さい音量で非同期 → interrupt で途中から差し替え");
+Speak("これは途中で止められる長い文章です。あいうえお、かきくけこ、さしすせそ。", async: true, rate: 3, volume: 50);
+Sleep(1500);
+Speak("差し替えました", interrupt: true);
+
+Step("大文字エイリアス: PRINT / BALLOON / SLEEP");
+PRINT("  PRINT で出力");
+using (BALLOON("BALLOON で表示", 400, 300)) SLEEP(1500);
+
+Step("ExitScript: ここでスクリプトを終了します (以降の Print は出ない)");
+BalloonClear();
+Print("完了 — 次の行 (NG) が出なければ OK");
+ExitScript();
+Print("  [NG] ExitScript 後も実行が続きました");

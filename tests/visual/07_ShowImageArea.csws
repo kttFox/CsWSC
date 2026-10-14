@@ -1,0 +1,75 @@
+// 目視テスト 07: 画像処理の範囲表示 (デバッグ用の枠)
+// 対象: ShowImageArea / SaveImage / CheckImage / PeekColor / Window.SaveImage / Window.CheckImage
+// 枠が表示されること、かつ枠が SaveImage / CheckImage / PeekColor の結果に入らないことを確認する。
+
+Balloon? stepBalloon = null;
+void Step(string s)
+{
+    Print("▶ " + s);
+    if (stepBalloon is { IsClosed: false }) stepBalloon.Update(s);
+    else stepBalloon = Balloon(s, new Point(20, 20), BalloonTail.None, 12);
+    Sleep(1500);
+}
+void Check(string name, bool ok) => Print($"  [{(ok ? "OK" : "NG")}] {name}");
+
+var dir = Path.Combine(Path.GetTempPath(), "CsWSC_VisualTest");
+Directory.CreateDirectory(dir);
+
+var area = new Rectangle(400, 300, 300, 200);
+var outer = Rectangle.Inflate(area, 20, 20); // 枠を含む広い範囲
+var before = Path.Combine(dir, "frame_before.png");
+var after = Path.Combine(dir, "frame_after.png");
+
+Step("準備: 枠なしで広い範囲を保存");
+SaveImage(before, outer);
+var edge = new Point(area.X - 2, area.Y - 2); // 枠が描かれる位置
+var edgeColor = PeekColor(edge);
+
+Step("SaveImage: 赤枠が 1 秒 (既定 1000 ms) 表示される");
+ShowImageArea(true);
+SaveImage(Path.Combine(dir, "frame_area.png"), area);
+Sleep(1500);
+
+Step("CheckImage: 緑枠を表示し続ける (durationMs 0)");
+ShowImageArea(true, Color.Lime, 0);
+var self = CheckImage(before, outer);
+Check($"CheckImage (枠表示中) = {self?.ToString() ?? "null"}", self == outer.Location);
+Sleep(1000);
+
+Step("枠表示中に枠ごと保存しても枠が写らない");
+SaveImage(after, outer); // 直後に枠は outer の外側へ移る
+Check("枠なし画像と一致", CheckImage(after, outer) == outer.Location && CheckImage(before, outer) == outer.Location);
+
+Step("PeekColor: 1 ピクセルを囲む枠。枠の色を拾わない");
+ShowImageArea(true, Color.Lime, 0);
+SaveImage(Path.Combine(dir, "frame_dummy.png"), area); // area に枠を出す
+var c = PeekColor(edge);
+Check($"PeekColor (枠の上) = {c} / 枠なし = {edgeColor}", c.ToArgb() == edgeColor.ToArgb());
+Sleep(1500);
+
+Step("Window.SaveImage / CheckImage: ノートパッドのクライアント領域の外周に枠");
+ShowImageArea(true, Color.Blue, 2000);
+var np = Exec("notepad.exe");
+if (np != null)
+{
+    np.MoveWindow(200, 200, 500, 300);
+    Sleep(500);
+    var wimg = Path.Combine(dir, "frame_notepad.png");
+    np.SaveImage(wimg);
+    Check($"Window.CheckImage = {np.CheckImage(wimg, tolerance: 10)}", np.CheckImage(wimg, tolerance: 10) == Point.Empty);
+    Sleep(2000);
+    np.Kill();
+}
+
+Step("ShowImageArea(false): 枠が消え、以降は表示されない");
+ShowImageArea(true, Color.Red, 0);
+SaveImage(Path.Combine(dir, "frame_dummy.png"), area);
+Sleep(1000);
+ShowImageArea(false);
+Sleep(1000);
+SaveImage(Path.Combine(dir, "frame_dummy.png"), area);
+Print("  (目視) 枠が表示されていなければ OK");
+Sleep(1500);
+
+BalloonClear();
+Print("完了");

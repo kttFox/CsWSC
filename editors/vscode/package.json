@@ -1,0 +1,112 @@
+{
+  "name": "cswsc",
+  "displayName": "CsWSC",
+  "description": "CsWSC スクリプト (.csws) の補完・ホバー・引数ヒント・エラー表示・定義へ移動・名前の変更・書式設定・実行",
+  "version": "0.1.0",
+  "publisher": "kttFox",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kttFox/CsWSC.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "languages": [
+      {
+        "id": "cswsc",
+        "aliases": [
+          "CsWSC",
+          "cswsc"
+        ],
+        "extensions": [
+          ".csws"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/cswsc.svg",
+          "dark": "./icons/cswsc.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "cswsc",
+        "scopeName": "source.cswsc",
+        "path": "./syntaxes/cswsc.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "cswsc.run",
+        "title": "CsWSC: スクリプトを実行",
+        "icon": "$(play)"
+      },
+      {
+        "command": "cswsc.debug",
+        "title": "CsWSC: スクリプトをデバッグ実行",
+        "icon": "$(debug-alt)"
+      },
+      {
+        "command": "cswsc.restartServer",
+        "title": "CsWSC: 解析サーバーを再起動"
+      }
+    ],
+    "menus": {
+      "editor/title/run": [
+        {
+          "command": "cswsc.run",
+          "when": "editorLangId == cswsc"
+        },
+        {
+          "command": "cswsc.debug",
+          "when": "editorLangId == cswsc"
+        }
+      ]
+    },
+    "breakpoints": [
+      {
+        "language": "cswsc"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "cswsc.debug",
+        "key": "f5",
+        "when": "editorLangId == cswsc && !inDebugMode"
+      },
+      {
+        "command": "cswsc.run",
+        "key": "ctrl+f5",
+        "when": "editorLangId == cswsc && !inDebugMode"
+      }
+    ],
+    "configuration": {
+      "title": "CsWSC",
+      "properties": {
+        "cswsc.exePath": {
+          "type": "string",
+          "default": "",
+          "description": "スクリプトの実行・デバッグ実行に使う CsWSC.exe のパス。空なら初回実行時に選択する。"
+        },
+        "cswsc.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "解析サーバー (cswsc-server.exe) のパス。空なら拡張機能に同梱のものを使う。"
+        },
+        "cswsc.sourceLink": {
+          "type": "boolean",
+          "default": true,
+          "description": "「定義へ移動」で CsWSC のコマンドや .NET の型のソースを、Microsoft のシンボルサーバーと GitHub からダウンロードする。オフにすると、取得済みのものだけを使う。"
+        }
+      }
+    }
+  }
+}

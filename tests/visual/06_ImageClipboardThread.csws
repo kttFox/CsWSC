@@ -1,0 +1,115 @@
+// 目視テスト 06: 画像・クリップボード・プロセス・スレッド・停止
+// 対象: SaveImage / CheckImage / CheckImages / ImageMatch (Color/Shape/Gray/Edge) / TransColor /
+//       Window.SaveImage / Window.CheckImage / Window.CheckImages / GetClipboard / SetClipboard /
+//       ExecWait / Thread / Cancellation
+
+Balloon? stepBalloon = null;
+void Step(string s)
+{
+    Print("▶ " + s);
+    if (stepBalloon is { IsClosed: false }) stepBalloon.Update(s);
+    else stepBalloon = Balloon(s, new Point(20, 20), BalloonTail.None, 12);
+    Sleep(1500);
+}
+void Check(string name, bool ok) => Print($"  [{(ok ? "OK" : "NG")}] {name}");
+
+var dir = Path.Combine(Path.GetTempPath(), "CsWSC_VisualTest");
+Directory.CreateDirectory(dir);
+Print($"出力先: {dir}");
+
+Step("SaveImage: 画面全体と左上 200x100 を保存");
+var full = Path.Combine(dir, "full.png");
+var part = Path.Combine(dir, "part.png");
+BalloonClear();
+SaveImage(full);
+SaveImage(part, new Rectangle(0, 0, 200, 100));
+Check("full.png 作成", File.Exists(full));
+Check("part.png 作成", File.Exists(part));
+
+Step("CheckImage: 左上の切り抜きを画面から探す (0,0 のはず)");
+BalloonClear();
+var found = CheckImage(part, tolerance: 10);
+Check($"CheckImage = {found?.ToString() ?? "null"}", found == new Point(0, 0));
+
+Step("CheckImage: 範囲指定で見つからない場合は null");
+BalloonClear();
+Check("範囲外 → null", CheckImage(part, new Rectangle(500, 500, 300, 300)) == null);
+
+Step("CheckImage(ImageMatch): Color / Shape / Gray / Edge の各モードで左上を探す");
+BalloonClear();
+var searchArea = new Rectangle(0, 0, 600, 400);
+foreach (var m in new ImageMatch[] { ImageMatch.Color(10), ImageMatch.Shape(), ImageMatch.Gray(), ImageMatch.Edge() })
+{
+    var sw2 = System.Diagnostics.Stopwatch.StartNew();
+    var r = CheckImage(part, searchArea, m);
+    Check($"CheckImage({m}) = {r?.ToString() ?? "null"} ({sw2.ElapsedMilliseconds} ms)", r == new Point(0, 0));
+}
+
+Step("CheckImage transColor: 左上隅・右下隅の色を透過色にしても見つかる");
+BalloonClear();
+foreach (var t in new[] { TransColor.TopLeft, TransColor.BottomRight })
+{
+    var r = CheckImage(part, t, searchArea, 10);
+    Check($"CheckImage(transColor: {t}) = {r?.ToString() ?? "null"}", r == new Point(0, 0));
+}
+
+Step("CheckImages: 同じ小画像を 3 つ並べて表示し、全部見つける");
+var dot = Path.Combine(dir, "dot.png");
+var marks = new List<Balloon>();
+foreach (var x in new[] { 300, 500, 700 }) marks.Add(Balloon("★CsWSC★", x, 500, BalloonTail.None, 14, backColor: Color.Yellow));
+Sleep(500);
+SaveImage(dot, new Rectangle(302, 502, 40, 14));
+var all = CheckImages(dot, new Rectangle(250, 450, 600, 150), tolerance: 10);
+Check($"CheckImages = {all.Length} 件 [{string.Join(", ", all)}]", all.Length == 3);
+var allGray = CheckImages(dot, new Rectangle(250, 450, 600, 150), ImageMatch.Gray());
+Check($"CheckImages(Gray) = {allGray.Length} 件", allGray.Length == 3);
+foreach (var mb in marks) mb.Close();
+
+Step("Window.SaveImage / CheckImage: ノートパッド");
+var np = Exec("notepad.exe");
+if (np != null)
+{
+    np.MoveWindow(200, 200, 500, 300);
+    np.SendText("画像テスト ★★★");
+    Sleep(500);
+    var wimg = Path.Combine(dir, "notepad.png");
+    np.SaveImage(wimg);
+    Check("notepad.png 作成", File.Exists(wimg));
+    Check($"Window.CheckImage = {np.CheckImage(wimg, tolerance: 10)}", np.CheckImage(wimg, tolerance: 10) != null);
+    Check($"Window.CheckImage(Gray) = {np.CheckImage(wimg, ImageMatch.Gray())}", np.CheckImage(wimg, ImageMatch.Gray()) != null);
+    var wall = np.CheckImages(wimg, tolerance: 10);
+    Check($"Window.CheckImages = {wall.Length} 件", wall.Length == 1);
+    Check($"Window.CheckImages(Edge) = {np.CheckImages(wimg, ImageMatch.Edge()).Length} 件", np.CheckImages(wimg, ImageMatch.Edge()).Length == 1);
+    np.Kill();
+}
+
+Step("SetClipboard / GetClipboard");
+var before = GetClipboard();
+SetClipboard("CsWSC クリップボードテスト 🎉");
+Check($"GetClipboard = {GetClipboard()}", GetClipboard() == "CsWSC クリップボードテスト 🎉");
+SetClipboard(before);
+
+Step("ExecWait: cmd /c exit 7 の終了コード");
+Check("ExecWait = 7", ExecWait("cmd.exe", "/c exit 7") == 7);
+
+Step("Thread: 別スレッドで吹き出しカウントダウン (メインは Print)");
+Thread(() =>
+{
+    using var tb = Balloon("スレッド: 5", new Point(600, 300));
+    for (var i = 4; i > 0; i--) { Sleep(1000); tb.Update($"スレッド: {i}"); }
+    Sleep(1000);
+});
+for (var i = 0; i < 5; i++) { Print($"  メイン {i}"); Sleep(1000); }
+Sleep(500);
+
+Step("Cancellation: 停止ボタン/Pause キーで止まる重いループ (10 秒)。止めずに待てば完了します");
+var sw = System.Diagnostics.Stopwatch.StartNew();
+while (sw.Elapsed.TotalSeconds < 10)
+{
+    Cancellation.ThrowIfCancellationRequested();
+    Balloon($"重いループ中… {10 - sw.Elapsed.TotalSeconds:F0} 秒\nPause キーで停止", new Point(20, 20), BalloonTail.None, 12);
+    System.Threading.Thread.Sleep(200);
+}
+
+BalloonClear();
+Print("完了 (画像は出力先フォルダで確認してください)");
