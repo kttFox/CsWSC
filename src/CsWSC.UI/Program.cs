@@ -25,6 +25,12 @@ static class Program {
 		// (StartEarly は窓を作らないので Initialize より前に呼んでよい)
 		string? source = null;
 		if( args.FirstOrDefault() is { } path ) {
+			// ライブラリは読み込まない (メイン画面も出さずに終わる)
+			if( ScriptLibraryResolver.IsLibrary( path ) ) {
+				ApplicationConfiguration.Initialize();
+				MessageBox.Show( ScriptRunner.LibraryNotRunnableMessage( path ), "CsWSC", MessageBoxButtons.OK, MessageBoxIcon.Warning );
+				return;
+			}
 			try { source = File.ReadAllText( path ); } catch( Exception ) { }
 			if( source != null ) {
 				ScriptProcess.KeepStandby = false; // 終わったら終了するので、次の再生用の待機プロセスは要らない

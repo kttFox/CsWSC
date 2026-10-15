@@ -150,6 +150,7 @@ public static class ScriptRunner {
 	/// compiling はキャッシュが使えずコンパイルするときに、コンパイルの前 (true) と後 (false) に呼ばれます (待機表示用)。
 	/// </summary>
 	public static void Run( string code, Action<string> output, CancellationToken cancellation, ILogWindow? logWindow = null, string? path = null, string? cacheDirectory = null, Action<bool>? compiling = null ) {
+		ThrowIfLibrary( path );
 		var filePath = System.IO.Path.GetFullPath( path ?? System.IO.Path.Combine( AppContext.BaseDirectory, ScriptPath ) );
 		var cachePath = ScriptCache.GetPath( cacheDirectory, code, filePath );
 		// キャッシュがあれば Roslyn を使わない (コンパイル処理は別メソッドにして Roslyn の読み込みを避ける)
@@ -166,10 +167,22 @@ public static class ScriptRunner {
 	/// ブレークポイントがファイルと一致するよう停止チェックを挿入せず、キャッシュも使いません。
 	/// </summary>
 	public static void RunForDebug( string code, string path, Action<string> output, CancellationToken cancellation, ILogWindow? logWindow = null ) {
+		ThrowIfLibrary( path );
 		var filePath = System.IO.Path.GetFullPath( path );
 		var compiled = CompileToImage( code, path, null, insertStopChecks: false );
 		Execute( compiled, filePath, output, cancellation, logWindow, setStopToken: true );
 	}
+
+	/// <summary>path がライブラリ (.cswsl) なら ScriptException を投げます (ライブラリは #r で参照するもので、直接は実行できない)。</summary>
+	private static void ThrowIfLibrary( string? path ) {
+		if( path != null && ScriptLibraryResolver.IsLibrary( path ) ) {
+			throw new ScriptException( LibraryNotRunnableMessage( path ), 0 );
+		}
+	}
+
+	/// <summary>ライブラリ (.cswsl) を直接実行・読み込みしようとしたときのメッセージです。</summary>
+	public static string LibraryNotRunnableMessage( string path ) =>
+		$"ライブラリ ({ScriptLibraryResolver.Extension}) は直接実行できません。スクリプトから #r \"{System.IO.Path.GetFileName( path )}\" で参照してください。";
 
 	/// <summary>コンパイル済みのスクリプトを実行します。setStopToken が false なら自動挿入の停止チェックの対象を変えません (温め用)。</summary>
 	private static void Execute( ScriptCache.Entry compiled, string filePath, Action<string> output, CancellationToken cancellation, ILogWindow? logWindow, bool setStopToken ) {
@@ -228,6 +241,7 @@ public static class ScriptRunner {
 	/// コンパイルエラーは ScriptException です。
 	/// </summary>
 	public static void Precompile( string code, string? path, string cacheDirectory ) {
+		ThrowIfLibrary( path );
 		var filePath = System.IO.Path.GetFullPath( path ?? System.IO.Path.Combine( AppContext.BaseDirectory, ScriptPath ) );
 		if( ScriptCache.GetPath( cacheDirectory, code, filePath ) is not { } cachePath || System.IO.File.Exists( cachePath ) ) {
 			return;
@@ -259,14 +273,22 @@ public static class ScriptRunner {
 		// 診断だけのコンパイルは省き Emit 1 回で済ませる。失敗したときだけ元のコードでコンパイルし直して位置を報告する
 		// (停止チェックは改行を入れないが、列や挿入箇所のエラーを元のコードで示すため)
 		// 実行時エラーの行番号取得用に PDB を埋め込む
+		var emitOptions = new Microsoft.CodeAnalysis.Emit.EmitOptions( debugInformationFormat: Microsoft.CodeAnalysis.Emit.DebugInformationFormat.Embedded );
 		var compilation = GetCompilation( script );
-		var result = compilation.Emit( stream,
-			options: new Microsoft.CodeAnalysis.Emit.EmitOptions( debugInformationFormat: Microsoft.CodeAnalysis.Emit.DebugInformationFormat.Embedded ) );
+		var result = compilation.Emit( stream, options: emitOptions );
+		if( !result.Success && !result.Diagnostics.Any( d => d.Severity == DiagnosticSeverity.Error ) ) {
+			// 文が 1 つも無い (空・コメントや using だけ) スクリプトは、Roslyn が診断なしで Emit に失敗するので、空の文を足して何もしないスクリプトにする
+			script = CSharpScript.Create( script.Code + "\n;", script.Options, typeof( ScriptGlobals ) );
+			compilation = GetCompilation( script );
+			stream.SetLength( 0 );
+			result = compilation.Emit( stream, options: emitOptions );
+		}
 		if( !result.Success ) {
 			Compile( code, path );
 			// 元のコードでは通る (停止チェックの挿入で壊れた) 場合も、壊れたアセンブリを実行・保存しない
 			var errors = result.Diagnostics.Where( d => d.Severity == DiagnosticSeverity.Error );
-			throw new ScriptException( string.Join( Environment.NewLine, errors.Select( e => e.GetMessage() ) ), 0 );
+			var message = string.Join( Environment.NewLine, errors.Select( e => e.GetMessage() ) );
+			throw new ScriptException( message.Length > 0 ? message : "スクリプトをコンパイルできませんでした。", 0 );
 		}
 
 		// 依存ファイル: #load したスクリプト・#r したライブラリと DLL (既定の参照以外)

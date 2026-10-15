@@ -223,6 +223,21 @@ public class ScriptRunnerTests {
 		} finally { try { Directory.Delete( directory, true ); } catch( UnauthorizedAccessException ) { } catch( IOException ) { } }
 	}
 
+	[Theory]
+	[InlineData( "" )]
+	[InlineData( "// コメントだけ" )]
+	[InlineData( "using System.Text;" )]
+	public void EmptyScript_DoesNothing( string code ) {
+		// 文が無いと Roslyn は診断なしで Emit に失敗する (本文の空なエラーになっていた)
+		Assert.Empty( Run( code ) );
+	}
+
+	[Fact]
+	public void RunLibrary_Throws() {
+		var ex = Assert.Throws<ScriptException>( () => ScriptRunner.Run( "", _ => { }, CancellationToken.None, path: @"C:\x\Lib.CSWSL" ) );
+		Assert.Contains( "#r \"Lib.CSWSL\"", ex.Message );
+	}
+
 	[Fact]
 	public void Nullable_IsEnabled() {
 		// nullable の警告はエラーにならず実行できる

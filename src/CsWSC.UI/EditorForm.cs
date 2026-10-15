@@ -22,8 +22,8 @@ public partial class EditorForm : Form {
 		SetupEditor();
 		_highlighter = new SyntaxHighlighter( editorTextBox );
 		FormClosed += ( _, _ ) => _highlighter.Dispose();
-		FileDrop.Enable( this, OpenDropped );
-		FileDrop.Enable( editorTextBox, OpenDropped );
+		FileDrop.Enable( this, OpenDropped, allowLibrary: true );
+		FileDrop.Enable( editorTextBox, OpenDropped, allowLibrary: true );
 
 		if( text != null ) {
 			editorTextBox.Text = text.ReplaceLineEndings( "\r\n" );
@@ -121,6 +121,8 @@ public partial class EditorForm : Form {
 	private void UpdateTitle() {
 		var name = FilePath != null ? Path.GetFileName( FilePath ) : "無題";
 		Text = $"{( _dirty ? "*" : "" )}{name} - CsWSC エディタ";
+		// ライブラリ (.cswsl) は編集だけで、実行はできない
+		runMenuItem.Enabled = _host != null && !( FilePath != null && ScriptLibraryResolver.IsLibrary( FilePath ) );
 	}
 
 	private bool ConfirmDiscard() {
@@ -139,7 +141,7 @@ public partial class EditorForm : Form {
 			FilePath = path;
 			_dirty = false;
 			UpdateTitle();
-			_host?.SetScript( path );
+			if( !ScriptLibraryResolver.IsLibrary( path ) ) _host?.SetScript( path ); // ライブラリは再生対象にしない
 			return true;
 		} catch( Exception ex ) {
 			MessageBox.Show( this, ex.Message, "CsWSC", MessageBoxButtons.OK, MessageBoxIcon.Error );
@@ -160,7 +162,7 @@ public partial class EditorForm : Form {
 			FilePath = path;
 			_dirty = false;
 			UpdateTitle();
-			_host?.SetScript( path );
+			if( !ScriptLibraryResolver.IsLibrary( path ) ) _host?.SetScript( path ); // ライブラリは再生対象にしない
 			return true;
 		} catch( Exception ex ) {
 			MessageBox.Show( this, ex.Message, "CsWSC", MessageBoxButtons.OK, MessageBoxIcon.Error );

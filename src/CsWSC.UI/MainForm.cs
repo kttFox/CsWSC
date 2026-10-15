@@ -302,6 +302,10 @@ public partial class MainForm : Form {
 	/// <summary>再生対象のスクリプトを設定します (エディタで保存したときにも呼ばれる)。</summary>
 	public void SetScript( string? path ) {
 		if( path != null && !File.Exists( path ) ) path = null;
+		if( path != null && ScriptLibraryResolver.IsLibrary( path ) ) {
+			MessageBox.Show( this, ScriptRunner.LibraryNotRunnableMessage( path ), AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning );
+			return;
+		}
 		_scriptPath = path;
 		if( path != null ) {
 			_recordedSource = null;
