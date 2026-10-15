@@ -43,6 +43,11 @@ CsWSC のスクリプト (`.csws`) で使える組み込みコマンドの一覧
 `System` `System.IO` `System.Linq` `System.Text` `System.Collections.Generic`  
 `System.Threading` `System.Threading.Tasks` `System.Drawing` `System.Windows.Forms` `CsWSC`
 
+### nullable 参照型
+
+スクリプトとライブラリ (`.cswsl`) では nullable 参照型が有効です。null になりうる変数は `string?` のように `?` を付けて宣言します。  
+null に関する指摘は警告なので、そのままでも実行できます。警告を止めたいときは、先頭に `#nullable disable` と書いてください。
+
 ### アセンブリの参照 (#r)
 
 スクリプトの先頭に `#r` を書くと、アセンブリを追加で参照できます。  
@@ -64,6 +69,31 @@ if (Input.Keyboard.IsKeyDown(Input.Key.LeftShift)) Print("Shift");
 ```
 
 読み込んだ DLL は CsWSC を終了するまで解放されません。
+
+#### ライブラリの参照 (.cswsl)
+
+`#r` には、ライブラリ用の `.cswsl` ファイルも指定できます。  
+`.cswsl` はスクリプトではなく通常の C# としてコンパイルされるので、スクリプトには書けないもの (C# 14 の `extension` ブロックによる拡張演算子など) を書けます。  
+既定の using はスクリプトと同じです。`.cswsl` を変更すると、次の実行時にコンパイルし直します。  
+VS Code の CsWSC 拡張機能では、`.cswsl` も実行時と同じ条件で補完・エラー表示ができます。
+
+```csharp
+// Ext.cswsl
+public static class PointExtensions
+{
+	extension(Point)
+	{
+		public static Point operator *(Point p, int value) => new(p.X * value, p.Y * value);
+	}
+}
+```
+
+```csharp
+#r "Ext.cswsl"
+var a = new Point(3, 4) * 2;	// {X=6,Y=8}
+```
+
+`.cswsl` 1 つが 1 つの DLL になります。`.cswsl` から別の `.cswsl` を参照することはできません。
 
 ### 停止
 

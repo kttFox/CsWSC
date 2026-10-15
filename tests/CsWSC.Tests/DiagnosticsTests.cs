@@ -29,6 +29,24 @@ public class DiagnosticsTests {
 	}
 
 	[Fact]
+	public async Task Nullable_IsEnabledInScript() {
+		var r = await _service.DiagnoseAsync( "file:///c%3A/test.csws", "string? a = null;\nstring b = null;\n" );
+		Assert.DoesNotContain( r, d => d.Code == "CS8632" ); // nullable が無効なら '?' に警告が出る
+		Assert.Contains( r, d => d.Code is "CS8600" or "CS8625" ); // トップレベルの変数はフィールドなので CS8625
+	}
+
+	[Fact]
+	public async Task Library_IsAnalyzedAsRegularCSharp() {
+		// .cswsl は通常の C# なので extension ブロックが書け、既定の using (Point) も使える。スクリプトのコマンドは使えない
+		var text = "public static class PointExt { extension(Point) { public static Point operator *(Point p, int v) => new(p.X * v, p.Y * v); } }\n"
+			+ "static class Other { static void F() => Print(1); }\n";
+		var r = await _service.DiagnoseAsync( "file:///c%3A/test/Ext.cswsl", text );
+		Assert.DoesNotContain( r, d => d.Code == "CS9283" );
+		Assert.Single( r, d => d.Severity == "error" );
+		Assert.Contains( r, d => d.Code == "CS0103" );
+	}
+
+	[Fact]
 	public void ToFilePath_DecodesDriveColon() {
 		Assert.Equal( @"c:\Users\test\my script.csws", ScriptWorkspace.ToFilePath( "file:///c%3A/Users/test/my%20script.csws" ) );
 	}

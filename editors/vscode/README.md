@@ -1,6 +1,7 @@
 # CsWSC (VS Code 拡張)
 
-CsWSC スクリプト (`.csws`) を VS Code で編集するための拡張機能です。
+CsWSC スクリプト (`.csws`) と、`#r` で参照するライブラリ (`.cswsl`) を VS Code で編集するための拡張機能です。
+`.cswsl` は通常の C# として、実行時と同じ参照と既定の using で解析します (実行はできません)。
 
 - **補完**: 組み込みコマンド (`Mouse` `GetWindow` …)、`Window`・`Control` などのメンバー、.NET の型・メソッド
 - **ホバー / 補完の説明**: シグネチャと説明文 (CsWSC のコマンドは日本語、.NET は英語)

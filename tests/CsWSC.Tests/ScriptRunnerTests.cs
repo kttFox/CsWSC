@@ -196,6 +196,53 @@ public class ScriptRunnerTests {
 	}
 
 	[Fact]
+	public void ReferenceCswsl_AllowsExtensionOperator() {
+		var directory = Path.Combine( Path.GetTempPath(), "CsWSC.Tests." + Guid.NewGuid().ToString( "N" ) );
+		var cache = Path.Combine( directory, "cache" );
+		var path = Path.Combine( directory, "main.csws" );
+		var lib = Path.Combine( directory, "Ext.cswsl" );
+		const string Code = "#r \"Ext.cswsl\"\nPrint(new System.Drawing.Point(3, 4) * 2);";
+		List<string> RunMain() {
+			var output = new List<string>();
+			ScriptRunner.Run( Code, output.Add, CancellationToken.None, path: path, cacheDirectory: cache );
+			return output;
+		}
+		Directory.CreateDirectory( directory );
+		try {
+			// スクリプトでは書けない extension ブロックの演算子 (CS9283)
+			File.WriteAllText( lib, "public static class PointExt { extension(Point) { public static Point operator *(Point p, int v) => new(p.X * v, p.Y * v); } }" );
+			Assert.Equal( ["{X=6,Y=8}"], RunMain() );
+			Assert.Equal( ["{X=6,Y=8}"], RunMain() ); // キャッシュから
+			File.WriteAllText( lib, "public static class PointExt { extension(Point) { public static Point operator *(Point p, int v) => new(p.X * v * 10, p.Y * v); } }" );
+			File.SetLastWriteTimeUtc( lib, DateTime.UtcNow.AddMinutes( 1 ) );
+			Assert.Equal( ["{X=60,Y=8}"], RunMain() ); // .cswsl の変更を検知する
+
+			File.WriteAllText( lib, "public static class PointExt { int x = ; }" );
+			var ex = Assert.Throws<ScriptException>( () => ScriptRunner.Compile( Code, path ) );
+			Assert.Contains( "Ext.cswsl(1):", ex.Message );
+		} finally { try { Directory.Delete( directory, true ); } catch( UnauthorizedAccessException ) { } catch( IOException ) { } }
+	}
+
+	[Fact]
+	public void Nullable_IsEnabled() {
+		// nullable の警告はエラーにならず実行できる
+		Assert.Equal( ["True"], Run( "string? a = null;\nstring b = null;\nPrint(a == b);" ) );
+		var diagnostics = ScriptRunner.GetCompilation( "string? a = null;" ).GetDiagnostics();
+		Assert.DoesNotContain( diagnostics, d => d.Id == "CS8632" );
+	}
+
+	[Fact]
+	public void ReferenceCs_IsNotCompiled() {
+		// .cs はライブラリとして扱わず、これまでどおり DLL として探す (見つからないエラーになる)
+		var directory = Path.Combine( Path.GetTempPath(), "CsWSC.Tests." + Guid.NewGuid().ToString( "N" ) );
+		Directory.CreateDirectory( directory );
+		try {
+			File.WriteAllText( Path.Combine( directory, "Ext.cs" ), "public static class Ext { }" );
+			Assert.Throws<ScriptException>( () => ScriptRunner.Compile( "#r \"Ext.cs\"\nvar t = typeof(Ext);", Path.Combine( directory, "main.csws" ) ) );
+		} finally { Directory.Delete( directory, true ); }
+	}
+
+	[Fact]
 	public void Cancellation_StopsScript() {
 		using var cts = new CancellationTokenSource();
 		cts.Cancel();

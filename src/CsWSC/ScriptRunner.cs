@@ -65,7 +65,7 @@ public static class ScriptRunner {
 
 	/// <summary>
 	/// スクリプトのコンパイルオプションです。#r / #load の相対パスは path のフォルダ
-	/// (未保存なら実行ファイルのフォルダ) を基準に解決します。
+	/// (未保存なら実行ファイルのフォルダ) を基準に解決します。#r にはライブラリ (.cswsl) も指定できます (ScriptLibraryResolver)。
 	/// </summary>
 	private static ScriptOptions CreateOptions( string? path, bool insertStopChecks = false ) {
 		var filePath = System.IO.Path.GetFullPath( path ?? System.IO.Path.Combine( AppContext.BaseDirectory, ScriptPath ) );
@@ -82,7 +82,7 @@ public static class ScriptRunner {
 			.WithEmitDebugInformation( true ) // 実行時エラーの行番号取得用
 			.WithFilePath( filePath )
 			.WithFileEncoding( System.Text.Encoding.UTF8 )
-			.WithMetadataResolver( ScriptMetadataResolver.Default.WithBaseDirectory( baseDir ) )
+			.WithMetadataResolver( new ScriptLibraryResolver( baseDir, MetadataReferences.Value ) )
 			.WithSourceResolver( sourceResolver );
 	}
 
@@ -109,20 +109,36 @@ public static class ScriptRunner {
 	/// <summary>コンパイルのみ行い、エラーがあれば ScriptException を投げます。path は #r / #load の相対パスの基準です。</summary>
 	public static Script<object> Compile( string code, string? path = null ) {
 		var script = CSharpScript.Create( code, CreateOptions( path ), typeof( ScriptGlobals ) );
-		var errors = script.Compile().Where( d => d.Severity == DiagnosticSeverity.Error ).ToImmutableArray();
+		var errors = GetCompilation( script ).GetDiagnostics().Where( d => d.Severity == DiagnosticSeverity.Error ).ToImmutableArray();
 		if( errors.Length > 0 ) {
 			var first = errors[0];
 			var line = first.Location.GetLineSpan().StartLinePosition.Line + 1;
-			var all = string.Join( Environment.NewLine, errors.Select( e =>
-				$"{e.Location.GetLineSpan().StartLinePosition.Line + 1}行目: {e.GetMessage()} ({e.Id})" ) );
+			// #r したライブラリのエラーを先に示す (スクリプト側には「見つからない」としか出ないため)
+			var all = string.Join( Environment.NewLine, LibraryErrors( script.Options ).Concat( errors.Select( e =>
+				$"{e.Location.GetLineSpan().StartLinePosition.Line + 1}行目: {e.GetMessage()} ({e.Id})" ) ) );
 			throw new ScriptException( all, line );
 		}
 		return script;
 	}
 
+	/// <summary>#r したライブラリのコンパイルエラーです。</summary>
+	private static IEnumerable<string> LibraryErrors( ScriptOptions options ) =>
+		( options.MetadataResolver as ScriptLibraryResolver )?.Errors ?? [];
+
 	/// <summary>実行時と同じ条件のコンパイル結果を返します (構文ハイライトなど解析用。エラーがあっても投げない)。</summary>
 	public static Compilation GetCompilation( string code, string? path = null ) =>
-		CSharpScript.Create( code, CreateOptions( path ), typeof( ScriptGlobals ) ).GetCompilation();
+		GetCompilation( CSharpScript.Create( code, CreateOptions( path ), typeof( ScriptGlobals ) ) );
+
+	/// <summary>スクリプトとライブラリの nullable 参照型の設定です (言語サーバーと共通)。</summary>
+	public static NullableContextOptions NullableContext => NullableContextOptions.Enable;
+
+	/// <summary>
+	/// script のコンパイル結果に、ScriptOptions では指定できないオプション (nullable 参照型) を設定して返します。
+	/// </summary>
+	private static Compilation GetCompilation( Script script ) {
+		var compilation = (CSharpCompilation)script.GetCompilation();
+		return compilation.WithOptions( compilation.Options.WithNullableContextOptions( NullableContext ) );
+	}
 
 	/// <summary>コンパイル済みスクリプトの既定のキャッシュフォルダです。</summary>
 	public static string DefaultCacheDirectory { get; } =
@@ -243,7 +259,7 @@ public static class ScriptRunner {
 		// 診断だけのコンパイルは省き Emit 1 回で済ませる。失敗したときだけ元のコードでコンパイルし直して位置を報告する
 		// (停止チェックは改行を入れないが、列や挿入箇所のエラーを元のコードで示すため)
 		// 実行時エラーの行番号取得用に PDB を埋め込む
-		var compilation = script.GetCompilation();
+		var compilation = GetCompilation( script );
 		var result = compilation.Emit( stream,
 			options: new Microsoft.CodeAnalysis.Emit.EmitOptions( debugInformationFormat: Microsoft.CodeAnalysis.Emit.DebugInformationFormat.Embedded ) );
 		if( !result.Success ) {
@@ -253,10 +269,11 @@ public static class ScriptRunner {
 			throw new ScriptException( string.Join( Environment.NewLine, errors.Select( e => e.GetMessage() ) ), 0 );
 		}
 
-		// 依存ファイル: #load したスクリプトと #r した DLL (既定の参照以外)
+		// 依存ファイル: #load したスクリプト・#r したライブラリと DLL (既定の参照以外)
 		var mainPath = script.Options.FilePath;
 		var loads = compilation.SyntaxTrees.Select( t => t.FilePath )
-			.Where( f => !string.IsNullOrEmpty( f ) && !string.Equals( f, mainPath, StringComparison.OrdinalIgnoreCase ) );
+			.Where( f => !string.IsNullOrEmpty( f ) && !string.Equals( f, mainPath, StringComparison.OrdinalIgnoreCase ) )
+			.Concat( ( script.Options.MetadataResolver as ScriptLibraryResolver )?.Sources ?? [] );
 		var defaults = References.Select( a => a.Location ).ToHashSet( StringComparer.OrdinalIgnoreCase );
 		var references = compilation.References.OfType<PortableExecutableReference>()
 			.Select( r => r.FilePath ).OfType<string>().Where( f => !defaults.Contains( f ) );

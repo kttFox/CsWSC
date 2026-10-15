@@ -1,7 +1,7 @@
 {
   "name": "cswsc",
   "displayName": "CsWSC",
-  "description": "CsWSC スクリプト (.csws) の補完・ホバー・引数ヒント・エラー表示・定義へ移動・名前の変更・書式設定・実行",
+  "description": "CsWSC スクリプト (.csws) とライブラリ (.cswsl) の補完・ホバー・引数ヒント・エラー表示・定義へ移動・名前の変更・書式設定・実行",
   "version": "0.1.0",
   "publisher": "kttFox",
   "license": "SEE LICENSE IN LICENSE.md",
@@ -34,11 +34,31 @@
           "light": "./icons/cswsc.svg",
           "dark": "./icons/cswsc.svg"
         }
+      },
+      {
+        "id": "cswsl",
+        "aliases": [
+          "CsWSC Library",
+          "cswsl"
+        ],
+        "extensions": [
+          ".cswsl"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/cswsc.svg",
+          "dark": "./icons/cswsc.svg"
+        }
       }
     ],
     "grammars": [
       {
         "language": "cswsc",
+        "scopeName": "source.cswsc",
+        "path": "./syntaxes/cswsc.tmLanguage.json"
+      },
+      {
+        "language": "cswsl",
         "scopeName": "source.cswsc",
         "path": "./syntaxes/cswsc.tmLanguage.json"
       }

@@ -17,18 +17,36 @@ internal sealed partial class ScriptWorkspace {
 	private readonly Dictionary<string, DocumentId> _documents = [];
 	private readonly ImmutableArray<MetadataReference> _references = LoadReferences();
 
+	/// <summary>スクリプトの #r でライブラリ (.cswsl) を解決するリゾルバーと、プロジェクトを作った時刻です。</summary>
+	private readonly Dictionary<string, (ScriptLibraryResolver Resolver, DateTime Created)> _libraryResolvers = [];
+
 	/// <summary>uri のドキュメントを最新の内容で返します。</summary>
 	public Document GetDocument( string uri, string text ) {
+		// #r したライブラリが保存されたら、スクリプトのプロジェクトを作り直して参照し直す
+		// (スクリプトのテキストが同じだとコンパイル結果が使い回され、ライブラリを読み直さないため)
+		if( _libraryResolvers.TryGetValue( uri, out var library )
+			&& library.Resolver.Sources.Any( f => File.GetLastWriteTimeUtc( f ) > library.Created ) ) {
+			Close( uri );
+		}
+
 		if( !_documents.TryGetValue( uri, out var id ) ) {
 			var projectId = ProjectId.CreateNewId();
 			id = DocumentId.CreateNewId( projectId );
 			// #r / #load の相対パスは実行時と同じくスクリプトのフォルダを基準にする
 			var filePath = ToFilePath( uri );
 			var baseDir = filePath != null ? Path.GetDirectoryName( filePath )! : AppContext.BaseDirectory;
+			if( ScriptLibraryResolver.IsLibrary( uri ) ) {
+				AddLibrary( projectId, id, uri, filePath );
+				_documents[uri] = id;
+				return GetDocument( uri, text );
+			}
+
+			var resolver = new ScriptLibraryResolver( baseDir, _references );
+			_libraryResolvers[uri] = (resolver, DateTime.UtcNow);
 			var project = ProjectInfo.Create( projectId, VersionStamp.Create(), uri, "cswsc", LanguageNames.CSharp,
 				filePath: filePath,
-				compilationOptions: new CSharpCompilationOptions( OutputKind.DynamicallyLinkedLibrary, usings: ScriptRunner.Imports )
-					.WithMetadataReferenceResolver( ScriptMetadataResolver.Default.WithBaseDirectory( baseDir ) )
+				compilationOptions: new CSharpCompilationOptions( OutputKind.DynamicallyLinkedLibrary, usings: ScriptRunner.Imports, nullableContextOptions: ScriptRunner.NullableContext )
+					.WithMetadataReferenceResolver( resolver )
 					.WithSourceReferenceResolver( ScriptSourceResolver.Default.WithBaseDirectory( baseDir ) ),
 				parseOptions: new CSharpParseOptions( LanguageVersion.Latest, kind: SourceCodeKind.Script ),
 				metadataReferences: _references,
@@ -42,6 +60,22 @@ internal sealed partial class ScriptWorkspace {
 		var solution = _workspace.CurrentSolution.WithDocumentText( id, SourceText.From( text ) );
 		_workspace.TryApplyChanges( solution );
 		return _workspace.CurrentSolution.GetDocument( id )!;
+	}
+
+	/// <summary>
+	/// #r で参照するライブラリ (.cswsl) を、実行時と同じ条件 (通常の C#・同じ参照と global using) のプロジェクトとして追加します。
+	/// </summary>
+	private void AddLibrary( ProjectId projectId, DocumentId id, string uri, string? filePath ) {
+		var project = ProjectInfo.Create( projectId, VersionStamp.Create(), uri, "cswsl", LanguageNames.CSharp,
+			filePath: filePath,
+			compilationOptions: ScriptLibraryResolver.CompilationOptions,
+			parseOptions: ScriptLibraryResolver.ParseOptions,
+			metadataReferences: _references );
+		_workspace.AddProject( project );
+		_workspace.AddDocument( DocumentInfo.Create( DocumentId.CreateNewId( projectId ), "GlobalUsings.g.cs",
+			loader: TextLoader.From( TextAndVersion.Create( SourceText.From( ScriptLibraryResolver.GlobalUsings ), VersionStamp.Create() ) ) ) );
+		_workspace.AddDocument( DocumentInfo.Create( id, Path.GetFileName( uri ), filePath: filePath,
+			loader: TextLoader.From( TextAndVersion.Create( SourceText.From( "" ), VersionStamp.Create() ) ) ) );
 	}
 
 	/// <summary>
@@ -103,6 +137,7 @@ internal sealed partial class ScriptWorkspace {
 	}
 
 	public void Close( string uri ) {
+		_libraryResolvers.Remove( uri );
 		if( _documents.Remove( uri, out var id ) ) _workspace.TryApplyChanges( _workspace.CurrentSolution.RemoveProject( id.ProjectId ) );
 	}
 

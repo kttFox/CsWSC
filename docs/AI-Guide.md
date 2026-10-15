@@ -9,7 +9,8 @@
 - `class` や `Main` は書かない。上から順に実行されるトップレベルの文として書く。関数 (ローカル関数) はどこに書いても呼べる。
 - 組み込みコマンドは**クラス名なし**で呼ぶ (`Mouse(...)`、`GetWindow(...)`)。
 - 既定の using: `System` `System.IO` `System.Linq` `System.Text` `System.Collections.Generic` `System.Threading` `System.Threading.Tasks` `System.Drawing` `System.Windows.Forms` `CsWSC`
-- 他のアセンブリは先頭に `#r "path.dll"` か `#r "System.Data"` を書く (相対パスの基準はスクリプトのフォルダ)。
+- nullable 参照型が有効。null になりうる変数は `string?` のように宣言する (null の指摘は警告で、実行は止まらない)。
+- 他のアセンブリは先頭に `#r "path.dll"` か `#r "System.Data"` を書く (相対パスの基準はスクリプトのフォルダ)。`#r "Ext.cswsl"` と書くと、.cswsl (ライブラリ用の拡張子) を通常の C# としてコンパイルして参照する (スクリプトでは書けない `extension` ブロックの拡張演算子などに使う)。
 - 途中で終了するには `return;`、関数やスレッドの中から全体を終了するには `ExitScript();` を使う。
 
 ## 必ず守るルール
