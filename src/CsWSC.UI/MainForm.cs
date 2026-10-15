@@ -409,6 +409,17 @@ public partial class MainForm : Form {
 		SetStopLayout( running, $"停止 ({_settings.StopHotkey})" );
 		UpdateButtons();
 		AutoTray( running );
+		// 実行中は停止ボタンと Print 窓を最前面に出しておく (操作中の窓からフォーカスは奪わない)
+		_printForm.Running = running;
+		SetTopMostNoActivate( running || _settings.TopMost );
+	}
+
+	[DllImport( "user32.dll" )] private static extern bool SetWindowPos( IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags );
+
+	/// <summary>アクティブにせずに最前面表示を切り替えます。</summary>
+	private void SetTopMostNoActivate( bool topMost ) {
+		const uint SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOACTIVATE = 0x0010;
+		SetWindowPos( Handle, new IntPtr( topMost ? -1 : -2 ), 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE );
 	}
 
 	/// <summary>再生・記録中は再生ボタンを横幅いっぱいの STOP ボタンにします。</summary>
