@@ -131,12 +131,17 @@ public static class ScriptRunner {
 	/// <summary>
 	/// スクリプトを実行します。呼び出したスレッドで同期的に実行されます。
 	/// cacheDirectory を指定するとコンパイル結果を保存し、次回からは Roslyn を読み込まずに実行します。
+	/// compiling はキャッシュが使えずコンパイルするときに、コンパイルの前 (true) と後 (false) に呼ばれます (待機表示用)。
 	/// </summary>
-	public static void Run( string code, Action<string> output, CancellationToken cancellation, ILogWindow? logWindow = null, string? path = null, string? cacheDirectory = null ) {
+	public static void Run( string code, Action<string> output, CancellationToken cancellation, ILogWindow? logWindow = null, string? path = null, string? cacheDirectory = null, Action<bool>? compiling = null ) {
 		var filePath = System.IO.Path.GetFullPath( path ?? System.IO.Path.Combine( AppContext.BaseDirectory, ScriptPath ) );
 		var cachePath = ScriptCache.GetPath( cacheDirectory, code, filePath );
 		// キャッシュがあれば Roslyn を使わない (コンパイル処理は別メソッドにして Roslyn の読み込みを避ける)
-		var compiled = ( cachePath != null ? ScriptCache.TryRead( cachePath ) : null ) ?? CompileToImage( code, path, cachePath );
+		var compiled = cachePath != null ? ScriptCache.TryRead( cachePath ) : null;
+		if( compiled == null ) {
+			compiling?.Invoke( true );
+			try { compiled = CompileToImage( code, path, cachePath ); } finally { compiling?.Invoke( false ); }
+		}
 		Execute( compiled, filePath, output, cancellation, logWindow, setStopToken: true );
 	}
 

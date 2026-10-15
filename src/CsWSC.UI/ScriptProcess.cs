@@ -14,7 +14,7 @@ namespace CsWSC.UI;
 /// 親 → 子: 要求 = 種類 ("run" / "compile") の行、パス (未保存なら空) の行、ソースの文字数の行、ソース本体です。
 ///          以降は "stop" の行で停止要求です。"compile" ではコンパイル結果をキャッシュに保存して終了します。
 /// 子 → 親: 1 行 1 メッセージで、項目はタブ区切りです (文字列は <see cref="Escape"/> する)。
-///          print / visible / bounds / clear と、最後に ok / stopped / error のどれかです。
+///          compiling (1 = コンパイル開始, 0 = 終了) / print / visible / bounds / clear と、最後に ok / stopped / error のどれかです。
 /// </remarks>
 internal static class ScriptProcess {
 	public const string ChildArgument = "--run-script";
@@ -142,7 +142,10 @@ internal static class ScriptProcess {
 	/// </summary>
 	public static async Task RunAsync( string source, string? path, Action<string> output, ILogWindow logWindow, CancellationToken cancellation ) {
 		// 同じスクリプトを事前コンパイル中なら、二重にコンパイルせず終わるのを待つ
-		if( _precompile is { } p && p.Source == source && p.Path == path ) await p.Task;
+		if( _precompile is { } p && p.Source == source && p.Path == path ) {
+			using var notice = CompilingNotice.Begin();
+			await p.Task;
+		}
 		try {
 			await RunCoreAsync( source, path, output, logWindow, cancellation );
 		} finally {
@@ -181,15 +184,24 @@ internal static class ScriptProcess {
 		} );
 
 		string[]? end = null;
-		while( await process.StandardOutput.ReadLineAsync() is { } line ) {
-			var f = line.Split( '\t' );
-			switch( f[0] ) {
-				case "print": output( Unescape( f[1] ) ); break;
-				case "visible": logWindow.SetVisible( f[1] == "1" ); break;
-				case "bounds": logWindow.SetBounds( ParseInt( f[1] ), ParseInt( f[2] ), ParseInt( f[3] ), ParseInt( f[4] ) ); break;
-				case "clear": logWindow.Clear(); break;
-				case "ok" or "stopped" or "error": end = f; break;
+		CompilingNotice? notice = null;
+		try {
+			while( await process.StandardOutput.ReadLineAsync() is { } line ) {
+				var f = line.Split( '\t' );
+				switch( f[0] ) {
+					case "compiling":
+						notice?.Dispose();
+						notice = f[1] == "1" ? CompilingNotice.Begin() : null;
+						break;
+					case "print": output( Unescape( f[1] ) ); break;
+					case "visible": logWindow.SetVisible( f[1] == "1" ); break;
+					case "bounds": logWindow.SetBounds( ParseInt( f[1] ), ParseInt( f[2] ), ParseInt( f[3] ), ParseInt( f[4] ) ); break;
+					case "clear": logWindow.Clear(); break;
+					case "ok" or "stopped" or "error": end = f; break;
+				}
 			}
+		} finally {
+			notice?.Dispose();
 		}
 		await process.WaitForExitAsync( CancellationToken.None );
 
@@ -274,7 +286,7 @@ internal static class ScriptProcess {
 
 		try {
 			ScriptRunner.Run( source, text => Send( "print\t" + Escape( text ) ), cts.Token, new LogWindowProxy( Send ),
-				path, ScriptRunner.DefaultCacheDirectory );
+				path, ScriptRunner.DefaultCacheDirectory, compiling => Send( compiling ? "compiling\t1" : "compiling\t0" ) );
 			Send( "ok" );
 		} catch( OperationCanceledException ) {
 			Send( "stopped" );
