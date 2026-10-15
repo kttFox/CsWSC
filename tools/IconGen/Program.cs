@@ -2,7 +2,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 
-// ボタンは 64x64 で描いて 20x20 に縮小する。アプリアイコンは 16/24/32/48/256 の各サイズで描いて .ico にまとめ、VS Code 用に 128 の icon.png も出力する
+// ボタンは各サイズの 4 倍で描いて縮小する。アプリアイコンは 16/24/32/48/256 の各サイズで描いて .ico にまとめ、VS Code 用に 128 の icon.png も出力する
 // 使い方: dotnet run -- <出力先フォルダ>   (-o <出力先フォルダ> でも可)
 var rest = args is ["-o" or "--output", ..] ? args[1..] : args;
 if (rest is not [var outDir] || outDir.StartsWith('-'))
@@ -11,6 +11,8 @@ if (rest is not [var outDir] || outDir.StartsWith('-'))
     return 1;
 }
 Directory.CreateDirectory(outDir);
+// ボタン画像のサイズ (DPI 100/125/150/175/200/250%)
+int[] ButtonSizes = [20, 25, 30, 35, 40, 50];
 
 Save("Load", DrawLoad);
 Save("Save", DrawSave);
@@ -24,9 +26,13 @@ return 0;
 
 void Save(string name, Action<Graphics> draw)
 {
-    using var big = Render(draw, 64);
-    using var small = Resize(big, 20);
-    small.Save(Path.Combine(outDir, name + ".png"), ImageFormat.Png);
+    // 20 は DPI 100%。それ以外は Load_30.png のようにサイズを付ける (MainForm が DPI に合うものを選ぶ)
+    foreach (var size in ButtonSizes)
+    {
+        using var big = Render(draw, size * 4);
+        using var small = Resize(big, size);
+        small.Save(Path.Combine(outDir, size == 20 ? name + ".png" : $"{name}_{size}.png"), ImageFormat.Png);
+    }
 }
 
 Bitmap Render(Action<Graphics> draw, int size)

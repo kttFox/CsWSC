@@ -34,4 +34,94 @@
   <data name="AppIcon" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\CsWSC.ico;System.Drawing.Icon, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="Load_25" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Load_25.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Load_30" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Load_30.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Load_35" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Load_35.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Load_40" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Load_40.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Load_50" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Load_50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Save_25" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Save_25.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Save_30" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Save_30.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Save_35" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Save_35.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Save_40" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Save_40.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Save_50" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Save_50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Play_25" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Play_25.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Play_30" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Play_30.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Play_35" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Play_35.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Play_40" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Play_40.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Play_50" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Play_50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Stop_25" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Stop_25.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Stop_30" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Stop_30.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Stop_35" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Stop_35.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Stop_40" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Stop_40.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Stop_50" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Stop_50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Record_25" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Record_25.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Record_30" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Record_30.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Record_35" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Record_35.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Record_40" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Record_40.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Record_50" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Record_50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Settings_25" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Settings_25.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Settings_30" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Settings_30.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Settings_35" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Settings_35.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Settings_40" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Settings_40.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="Settings_50" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Settings_50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
 </root>

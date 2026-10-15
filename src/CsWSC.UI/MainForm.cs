@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Xml.Linq;
 using CsWSC.Recording;
 
@@ -51,6 +51,7 @@ public partial class MainForm : Form {
 
 	public MainForm() {
 		InitializeComponent();
+		ApplyButtonImages();
 		FileDrop.Enable( this, path => SetScript( path ) );
 		foreach( System.Windows.Forms.Control c in Controls ) FileDrop.Enable( c, path => SetScript( path ) );
 		// ウインドウ全体 (ボタン上も含む) で右クリックすると設定メニューを出す
@@ -413,7 +414,7 @@ public partial class MainForm : Form {
 	/// <summary>再生・記録中は再生ボタンを横幅いっぱいの STOP ボタンにします。</summary>
 	private void SetStopLayout( bool running, string stopTip ) {
 		// 再生中は再生ボタンが停止ボタンになる
-		playButton.Image = running ? Properties.Resources.Stop : Properties.Resources.Play;
+		playButton.Image = ButtonImage( running ? nameof( Properties.Resources.Stop ) : nameof( Properties.Resources.Play ) );
 		// 再生中は他のボタンを隠し、横幅いっぱいの STOP ボタンだけにする
 		loadButton.Visible = saveButton.Visible = recordButton.Visible = settingsButton.Visible = !running;
 		playButton.Text = running ? "STOP" : "";
@@ -421,8 +422,61 @@ public partial class MainForm : Form {
 		// アイコンを右寄せ・文字を左寄せにすると、両者が中央で隣り合う
 		playButton.ImageAlign = running ? ContentAlignment.MiddleRight : ContentAlignment.MiddleCenter;
 		playButton.TextAlign = running ? ContentAlignment.MiddleLeft : ContentAlignment.MiddleCenter;
-		playButton.Width = running ? ClientSize.Width : 62;
+		playButton.Width = running ? ClientSize.Width : LogicalToDeviceUnits( 62 );
 		toolTip.SetToolTip( playButton, running ? stopTip : "再生(P)" );
+	}
+
+	/// <summary>DPI に合わせて拡大したボタン画像のキャッシュです (キーはリソース名)。</summary>
+	private readonly Dictionary<string, Image> _buttonImages = [];
+	private int _buttonImagesDpi;
+
+	/// <summary>ボタン画像のリソースに用意されうるサイズです。<c>Load_40</c> のように名前の後ろにサイズを付けます (付けないものは 20)。</summary>
+	private static readonly int[] ButtonImageSizes = [20, 25, 30, 35, 40, 50];
+
+	/// <summary>リソースのボタン画像から現在の DPI に合うサイズのものを返します。ちょうどのサイズがなければ、それより大きいものを縮小します。</summary>
+	private Image ButtonImage( string name ) {
+		if( _buttonImagesDpi != DeviceDpi ) {
+			foreach( var img in _buttonImages.Values ) img.Dispose();
+			_buttonImages.Clear();
+			_buttonImagesDpi = DeviceDpi;
+		}
+		if( _buttonImages.TryGetValue( name, out var cached ) ) return cached;
+
+		int target = LogicalToDeviceUnits( 20 );
+		Bitmap? src = null;
+		foreach( int size in ButtonImageSizes ) {
+			var key = size == 20 ? name : $"{name}_{size}";
+			if( Properties.Resources.ResourceManager.GetObject( key ) is not Bitmap bmp ) continue;
+			src?.Dispose();
+			src = bmp;
+			if( size >= target ) break; // 最小の「目標以上」のサイズ (なければ最大のもの)
+		}
+		if( src == null ) throw new InvalidOperationException( $"ボタン画像 {name} がありません。" );
+		if( src.Width == target ) return _buttonImages[name] = src;
+
+		var scaled = new Bitmap( target, target );
+		using( var g = Graphics.FromImage( scaled ) ) {
+			g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+			g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+			g.DrawImage( src, new Rectangle( 0, 0, target, target ) );
+		}
+		src.Dispose();
+		return _buttonImages[name] = scaled;
+	}
+
+	/// <summary>各ボタンの画像を現在の DPI のものにします。</summary>
+	private void ApplyButtonImages() {
+		loadButton.Image = ButtonImage( nameof( Properties.Resources.Load ) );
+		saveButton.Image = ButtonImage( nameof( Properties.Resources.Save ) );
+		settingsButton.Image = ButtonImage( nameof( Properties.Resources.Settings ) );
+		bool running = _cts != null, recording = _recorder.IsRecording;
+		playButton.Image = ButtonImage( running || recording ? nameof( Properties.Resources.Stop ) : nameof( Properties.Resources.Play ) );
+		recordButton.Image = ButtonImage( recording ? nameof( Properties.Resources.Stop ) : nameof( Properties.Resources.Record ) );
+	}
+
+	protected override void OnDpiChanged( DpiChangedEventArgs e ) {
+		base.OnDpiChanged( e );
+		ApplyButtonImages();
 	}
 
 	private void UpdateButtons() {
@@ -432,7 +486,7 @@ public partial class MainForm : Form {
 		saveButton.Enabled = !running && !recording && hasScript;
 		playButton.Enabled = running || recording || hasScript;
 		recordButton.Enabled = !running;
-		recordButton.Image = recording ? Properties.Resources.Stop : Properties.Resources.Record;
+		recordButton.Image = ButtonImage( recording ? nameof( Properties.Resources.Stop ) : nameof( Properties.Resources.Record ) );
 		editMenuItem.Enabled = hasScript;
 		toolTip.SetToolTip( recordButton, recording ? $"記録終了 ({_settings.RecordHotkey})" : "記録" );
 		UpdateTitle();
