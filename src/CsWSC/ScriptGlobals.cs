@@ -11,7 +11,19 @@ namespace CsWSC;
 /// ここに書いた XML ドキュメントは、VS Code 拡張の補完・ホバー・引数ヒントにそのまま表示されます。
 /// summary は 1〜2 文で要点を、param は引数ごとに単位・省略時の動作を、remarks に注意点を書きます。
 /// </remarks>
-public partial class ScriptGlobals( Action<string> output, CancellationToken cancellation, ILogWindow? logWindow = null ) {
+public partial class ScriptGlobals( Action<string> output, CancellationToken cancellation, ILogWindow? logWindow = null, string? scriptPath = null ) {
+	/// <summary>
+	/// 実行中のスクリプトのファイル名 (フォルダーを除く) です。UWSC の GET_UWSC_NAME に相当します。
+	/// </summary>
+	/// <remarks>ファイルから実行していない場合は空文字です。</remarks>
+	/// <example>
+	/// <code>
+	/// Print(ScriptName); // main.csws
+	/// </code>
+	/// </example>
+	public string ScriptName { get; } = scriptPath is null ? "" : System.IO.Path.GetFileName( scriptPath );
+
+
 	// 停止要求に加え、メインスクリプト終了時にも THREAD を止めるためのトークン
 	private readonly CancellationTokenSource _lifetime = CancellationTokenSource.CreateLinkedTokenSource( cancellation );
 	private readonly List<System.Threading.Thread> _threads = [];
@@ -296,20 +308,10 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 	/// </example>
 	public string InputBox( string prompt, string defaultValue = "" ) {
 		Check();
-		// 停止要求があれば、このスレッドのダイアログを閉じる
-		var threadId = NativeMethods.GetCurrentThreadId();
-		string result;
-		using( Cancellation.Register( () => NativeMethods.EnumThreadWindows( threadId, ( hWnd, _ ) => {
-			if( NativeMethods.IsWindowVisible( hWnd ) ) {
-				NativeMethods.PostMessage( hWnd, NativeMethods.WM_CLOSE, 0, 0 );
-			}
-
-			return true;
-		}, IntPtr.Zero ) ) ) {
-			result = Microsoft.VisualBasic.Interaction.InputBox( prompt, "CsWSC", defaultValue );
-		}
-		Check();
-		return result;
+		return RunSta( () => {
+			using var f = new InputBoxForm( prompt, defaultValue, ScriptName );
+			return f.Run( Cancellation );
+		} );
 	}
 
 	// ---- マウス ----

@@ -162,7 +162,7 @@ public static class ScriptRunner {
 		AssemblyLoadContext.Default.Resolving += resolve;
 		var factory = Assembly.Load( compiled.Image ).GetType( "Submission#0" )!.GetMethod( "<Factory>", BindingFlags.Public | BindingFlags.Static )!;
 
-		var globals = new ScriptGlobals( output, cancellation, logWindow );
+		var globals = new ScriptGlobals( output, cancellation, logWindow, filePath );
 		var previousToken = ScriptStop.Token;
 		if( setStopToken ) {
 			ScriptStop.Token = globals.Cancellation;

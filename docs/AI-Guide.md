@@ -155,6 +155,7 @@ dynamic? GetActiveOleObject(string progId)
 string  GetClipboard()
 void    SetClipboard(string text)
 CancellationToken Cancellation              // 長い計算の途中で停止を確認する
+string  ScriptName                           // 実行中のスクリプトのファイル名
 ```
 
 ### 列挙型

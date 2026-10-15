@@ -90,6 +90,19 @@ while (true)
 }
 ```
 
+### ScriptName
+
+```csharp
+string ScriptName
+```
+
+実行中のスクリプトのファイル名 (フォルダーを除く) です。UWSC の `GET_UWSC_NAME` に相当します。  
+`InputBox` のタイトルにも表示されます。
+
+```csharp
+Print(ScriptName); // main.csws
+```
+
 ### スクリプトの終了
 
 途中で終了するには `return;` と書きます。
