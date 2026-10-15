@@ -20,18 +20,16 @@ public sealed class ScriptException( string message, int line, Exception? inner 
 public static class ScriptRunner {
 	private const string ScriptPath = "script.csws";
 
-	/// <summary>スクリプトが参照するアセンブリです (言語サーバーと共通)。</summary>
+	/// <summary>
+	/// スクリプトが参照するアセンブリです (言語サーバーと共通)。
+	/// 共有フレームワークの dll は、ここにあるアセンブリのフォルダからすべて参照します。
+	/// </summary>
 	public static IReadOnlyList<Assembly> References { get; } =
 	[
-		typeof(object).Assembly,
-		typeof(Enumerable).Assembly,
-		typeof(Form).Assembly,
-		typeof(Point).Assembly,
+		typeof(object).Assembly, // Microsoft.NETCore.App
+		typeof(Form).Assembly,   // Microsoft.WindowsDesktop.App
 		typeof(ScriptGlobals).Assembly,
-		typeof(Microsoft.CSharp.RuntimeBinder.Binder).Assembly, // dynamic (CreateOleObject など) 用
-        typeof(System.Windows.Input.Keyboard).Assembly, // System.Windows.Input (PresentationCore)
-        typeof(System.Windows.Input.Key).Assembly,      // System.Windows.Input (WindowsBase)
-    ];
+	];
 
 	/// <summary>スクリプトで最初から using される名前空間です (言語サーバーと共通)。</summary>
 	public static IReadOnlyList<string> Imports { get; } =
@@ -46,10 +44,23 @@ public static class ScriptRunner {
 	/// コンパイル間で共有され、2 回目以降のコンパイルが速くなります。
 	/// ScriptRunner の静的フィールドにすると、キャッシュから実行するときも Roslyn が読み込まれるため、
 	/// 入れ子のクラスに分けて初めてコンパイルするときに初期化します。
+	/// References が含まれる共有フレームワーク (.NET + WindowsDesktop) の dll はすべて参照し、
+	/// 言語サーバーと同じ型 (Stack・Regex・Process など) を使えるようにします。
 	/// </summary>
 	private static class MetadataReferences {
-		public static readonly ImmutableArray<MetadataReference> Value =
-			[.. References.Select( a => (MetadataReference)MetadataReference.CreateFromFile( a.Location ) )];
+		public static readonly ImmutableArray<MetadataReference> Value = Load();
+
+		private static ImmutableArray<MetadataReference> Load() {
+			var frameworkDirs = References
+				.Select( a => System.IO.Path.GetDirectoryName( a.Location )! )
+				.Where( d => d.Contains( "shared", StringComparison.OrdinalIgnoreCase ) )
+				.ToHashSet( StringComparer.OrdinalIgnoreCase );
+			var tpa = ( (string?)AppContext.GetData( "TRUSTED_PLATFORM_ASSEMBLIES" ) ?? "" ).Split( System.IO.Path.PathSeparator );
+			var files = tpa.Where( f => f.Length > 0 && frameworkDirs.Contains( System.IO.Path.GetDirectoryName( f )! ) )
+				.Concat( References.Select( a => a.Location ) )
+				.Distinct( StringComparer.OrdinalIgnoreCase );
+			return [.. files.Select( f => (MetadataReference)MetadataReference.CreateFromFile( f ) )];
+		}
 	}
 
 	/// <summary>
