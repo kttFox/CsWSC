@@ -15,7 +15,7 @@ dotnet run --project src/CsWSC.UI -- tests/visual/01_Output.csws
 | `04_Window.csws` | Exec / GetWindow / WaitWindow / GetAllWindows / ActiveWindow / WindowFromPoint (Point 版含む) / WindowFromHandle / WindowUnderMouse / ControlUnderMouse / ウィンドウ情報・状態・制御 / Close / Kill |
 | `05_Controls.csws` | テスト用フォームで ClickItem (timeoutMs) / CheckButton / GetItem / GetSelectedItems / Get・SetSlider / GetChildren / FindChild / Window.Mouse / Window.PostMouse / Window.TextAtPoint / Control (Parent・TopWindow・SetText・PostMouse) |
 | `06_ImageClipboardThread.csws` | SaveImage / CheckImage / CheckImages / ImageMatch (Color・Shape・Gray・Edge) / transColor (TransColor) / Window.SaveImage / Window.CheckImage / Window.CheckImages / クリップボード / ExecWait / Thread / Cancellation |
-| `07_ShowImageArea.csws` | ShowImageArea (SaveImage / CheckImage / PeekColor の範囲枠。枠が結果に写らないこと) |
+| `07_ShowImageArea.csws` | ShowImageArea (太さの指定、SaveImage / CheckImage / PeekColor の範囲枠。枠が結果に写らないこと) |
 | `08_DialogsSystem.csws` | SelectBox / SelectBoxMulti / PopupMenu / LogPrint / LogClear / LockHard / LockHardEx / Cmd / PowerShell / CreateOleObject / Speak / 大文字エイリアス / ExitScript (ダイアログ操作・音声あり) |
 
 - 実行中はマウス・キーボードに触らない。止めるときは **Pause** キー

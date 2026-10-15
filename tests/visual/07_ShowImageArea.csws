@@ -1,5 +1,5 @@
 // 目視テスト 07: 画像処理の範囲表示 (デバッグ用の枠)
-// 対象: ShowImageArea / SaveImage / CheckImage / PeekColor / Window.SaveImage / Window.CheckImage
+// 対象: ShowImageArea (色・太さ・表示時間) / SaveImage / CheckImage / PeekColor / Window.SaveImage / Window.CheckImage
 // 枠が表示されること、かつ枠が SaveImage / CheckImage / PeekColor の結果に入らないことを確認する。
 
 Balloon? stepBalloon = null;
@@ -24,6 +24,8 @@ Step("準備: 枠なしで広い範囲を保存");
 SaveImage(before, outer);
 var edge = new Point(area.X - 2, area.Y - 2); // 枠が描かれる位置
 var edgeColor = PeekColor(edge);
+var thickEdge = new Point(area.X - 8, area.Y - 8); // 太さ 10 の枠だけが描かれる位置
+var thickEdgeColor = PeekColor(thickEdge);
 
 Step("SaveImage: 赤枠が 1 秒 (既定 1000 ms) 表示される");
 ShowImageArea(true);
@@ -31,7 +33,7 @@ SaveImage(Path.Combine(dir, "frame_area.png"), area);
 Sleep(1500);
 
 Step("CheckImage: 緑枠を表示し続ける (durationMs 0)");
-ShowImageArea(true, Color.Lime, 0);
+ShowImageArea(true, Color.Lime, durationMs: 0);
 var self = CheckImage(before, outer);
 Check($"CheckImage (枠表示中) = {self?.ToString() ?? "null"}", self == outer.Location);
 Sleep(1000);
@@ -41,14 +43,40 @@ SaveImage(after, outer); // 直後に枠は outer の外側へ移る
 Check("枠なし画像と一致", CheckImage(after, outer) == outer.Location && CheckImage(before, outer) == outer.Location);
 
 Step("PeekColor: 1 ピクセルを囲む枠。枠の色を拾わない");
-ShowImageArea(true, Color.Lime, 0);
+ShowImageArea(true, Color.Lime, durationMs: 0);
 SaveImage(Path.Combine(dir, "frame_dummy.png"), area); // area に枠を出す
 var c = PeekColor(edge);
 Check($"PeekColor (枠の上) = {c} / 枠なし = {edgeColor}", c.ToArgb() == edgeColor.ToArgb());
 Sleep(1500);
 
+Step("thickness: 太さ 10 の黄枠。太い枠の色も拾わない");
+ShowImageArea(true, Color.Yellow, thickness: 10, durationMs: 0);
+SaveImage(Path.Combine(dir, "frame_dummy.png"), area);
+var tc = PeekColor(thickEdge);
+Check($"PeekColor (太い枠の上) = {tc} / 枠なし = {thickEdgeColor}", tc.ToArgb() == thickEdgeColor.ToArgb());
+Print("  (目視) 黄色の太い枠が表示されていれば OK");
+Sleep(1500);
+
+Step("thickness 省略: 前回の太さ 10 のまま緑枠になる");
+ShowImageArea(true, Color.Lime, durationMs: 0);
+SaveImage(Path.Combine(dir, "frame_dummy.png"), area);
+Print("  (目視) 緑色の太い枠が表示されていれば OK");
+Sleep(1500);
+
+Step("thickness 0: 例外になる");
+try
+{
+    ShowImageArea(true, thickness: 0);
+    Check("例外が発生する", false);
+}
+catch (ArgumentOutOfRangeException)
+{
+    Check("例外が発生する", true);
+}
+ShowImageArea(true, Color.Lime, thickness: 3, durationMs: 0); // 以降は既定の太さに戻す
+
 Step("Window.SaveImage / CheckImage: ノートパッドのクライアント領域の外周に枠");
-ShowImageArea(true, Color.Blue, 2000);
+ShowImageArea(true, Color.Blue, durationMs: 2000);
 var np = Exec("notepad.exe");
 if (np != null)
 {
@@ -62,7 +90,7 @@ if (np != null)
 }
 
 Step("ShowImageArea(false): 枠が消え、以降は表示されない");
-ShowImageArea(true, Color.Red, 0);
+ShowImageArea(true, Color.Red, durationMs: 0);
 SaveImage(Path.Combine(dir, "frame_dummy.png"), area);
 Sleep(1000);
 ShowImageArea(false);

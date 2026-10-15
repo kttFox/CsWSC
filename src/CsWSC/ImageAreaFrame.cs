@@ -8,7 +8,6 @@ namespace CsWSC;
 /// ただし除外された窓は下に別ウィンドウがあると黒く写るため、表示中の枠はキャプチャ前に必ず隠します。
 /// </summary>
 internal sealed class ImageAreaFrame : IDisposable {
-	private const int Thickness = 3;
 	private System.Windows.Forms.Control? _invoker;
 	private FrameForm? _form;
 	private readonly object _lock = new();
@@ -18,6 +17,9 @@ internal sealed class ImageAreaFrame : IDisposable {
 
 	/// <summary>枠を表示し続ける時間です (ミリ秒)。0 以下なら次の表示まで消しません。</summary>
 	public int DurationMs { get; set; } = 1000;
+
+	/// <summary>枠の太さです (ピクセル)。</summary>
+	public int Thickness { get; set; } = 3;
 
 	/// <summary>キャプチャの前に呼びます。表示中の枠を隠し、画面への反映を待ちます。</summary>
 	public void BeforeCapture() {
@@ -35,8 +37,8 @@ internal sealed class ImageAreaFrame : IDisposable {
 	/// <summary>キャプチャした範囲 (画面座標) に枠を表示します。hits を渡すと見つかった範囲にも枠を表示します。</summary>
 	public void Show( Rectangle area, IReadOnlyList<Rectangle>? hits = null ) {
 		var form = EnsureForm();
-		var (color, duration) = (Color, DurationMs);
-		Run( () => form.ShowFrame( area, hits ?? [], color, duration ) );
+		var (color, duration, thickness) = (Color, DurationMs, Thickness);
+		Run( () => form.ShowFrame( area, hits ?? [], color, duration, thickness ) );
 	}
 
 	public void Hide() {
@@ -116,20 +118,20 @@ internal sealed class ImageAreaFrame : IDisposable {
 			}
 		}
 
-		public void ShowFrame( Rectangle area, IReadOnlyList<Rectangle> hits, Color color, int durationMs ) {
+		public void ShowFrame( Rectangle area, IReadOnlyList<Rectangle> hits, Color color, int durationMs, int thickness ) {
 			_timer.Stop();
 			// 枠は範囲の外側に描く (範囲内の画素を隠さない)
-			var outer = Rectangle.Inflate( area, Thickness, Thickness );
+			var outer = Rectangle.Inflate( area, thickness, thickness );
 			foreach( var hit in hits ) {
-				outer = Rectangle.Union( outer, Rectangle.Inflate( hit, Thickness, Thickness ) );
+				outer = Rectangle.Union( outer, Rectangle.Inflate( hit, thickness, thickness ) );
 			}
 
 			Bounds = outer;
 			var region = new Region( Rectangle.Empty );
 			foreach( var r in hits.Prepend( area ) ) {
-				var ring = new Rectangle( r.X - Thickness - outer.X, r.Y - Thickness - outer.Y, r.Width + Thickness * 2, r.Height + Thickness * 2 );
+				var ring = new Rectangle( r.X - thickness - outer.X, r.Y - thickness - outer.Y, r.Width + thickness * 2, r.Height + thickness * 2 );
 				using var inner = new Region( ring );
-				inner.Exclude( Rectangle.Inflate( ring, -Thickness, -Thickness ) );
+				inner.Exclude( Rectangle.Inflate( ring, -thickness, -thickness ) );
 				region.Union( inner );
 			}
 

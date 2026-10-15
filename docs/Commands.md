@@ -905,7 +905,7 @@ foreach (var (color, point) in CheckColors([Color.Red, Color.Lime])) Print($"{co
 ### ShowImageArea
 
 ```csharp
-void ShowImageArea([bool enabled = true], [Color? color], [int? durationMs])
+void ShowImageArea([bool enabled = true], [Color? color], [int? thickness], [int? durationMs])
 ```
 
 デバッグ用です。  
@@ -916,6 +916,9 @@ void ShowImageArea([bool enabled = true], [Color? color], [int? durationMs])
   `false` で表示をやめ、枠を消します。
 - `color`: 枠の色です。  
   省略すると前回の指定のままです (初回は赤)。
+- `thickness`: 枠の太さ (ピクセル) です。  
+  省略すると前回の指定のままです (初回は 3)。  
+  1 未満を指定すると例外になります。
 - `durationMs`: 枠を表示し続けるミリ秒数です。  
   省略すると前回の指定のままです (初回は 1000)。  
   0 以下なら次に対象の操作をするまで表示し続けます。

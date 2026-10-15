@@ -584,6 +584,7 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 	/// </summary>
 	/// <param name="enabled">true で表示します。false で表示をやめ、枠を消します。</param>
 	/// <param name="color">枠の色です。省略すると前回の指定のまま (初回は赤) です。</param>
+	/// <param name="thickness">枠の太さ (ピクセル) です。省略すると前回の指定のまま (初回は 3) です。1 未満を指定すると例外になります。</param>
 	/// <param name="durationMs">枠を表示し続けるミリ秒数です。省略すると前回の指定のまま (初回は 1000) です。0 以下なら次のキャプチャ (SaveImage・Capture・CheckImage・CheckColor・PeekColor など) まで表示し続けます。</param>
 	/// <remarks>
 	/// 枠は範囲の外側に描かれ、キャプチャの直前に隠してから取り込むため SaveImage / CheckImage の結果に影響しません。
@@ -596,7 +597,11 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 	/// CheckImage(@"C:\img\ok.png", new Rectangle(100, 100, 400, 300));
 	/// </code>
 	/// </example>
-	public void ShowImageArea( bool enabled = true, Color? color = null, int? durationMs = null ) {
+	public void ShowImageArea( bool enabled = true, Color? color = null, int? thickness = null, int? durationMs = null ) {
+		if( thickness is < 1 ) {
+			throw new ArgumentOutOfRangeException( nameof( thickness ), thickness, "枠の太さは 1 以上を指定してください。" );
+		}
+
 		if( !enabled ) {
 			ScreenImage.Frame = null;
 			_imgFrame?.Hide();
@@ -606,6 +611,7 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 		_imgFrame ??= new ImageAreaFrame();
 		if( color is { } c ) _imgFrame.Color = c;
 		if( durationMs is { } ms ) _imgFrame.DurationMs = ms;
+		if( thickness is { } t ) _imgFrame.Thickness = t;
 		ScreenImage.Frame = _imgFrame;
 	}
 

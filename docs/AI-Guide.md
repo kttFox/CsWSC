@@ -142,7 +142,7 @@ Point?  CheckColor(Color color, [Rectangle? area], [int tolerance = 0])   // 指
 Capture Capture([Rectangle? area])   // 画面を一度だけ取り込む。w.Capture([area]) / Capture(string imagePath) もある
 //   c.CheckImage(…) / c.CheckImages(…) (引数は同じ) / c.CheckColor(Color または Color[], [area], [tolerance]) / c.CheckColors(…) / c.PeekColor(x, y) / c.Save(path) / c.ToBitmap()
 //   座標は作ったときの座標系で受け取り・返す。複数の画像や色を同じ瞬間の画面で調べるときに使う
-void   ShowImageArea([bool enabled], [Color? color], [int durationMs])     // デバッグ用に範囲を枠で表示
+void   ShowImageArea([bool enabled], [Color? color], [int thickness], [int durationMs]) // デバッグ用に範囲を枠で表示
 ```
 
 ### スレッド・プロセス・COM・クリップボード
