@@ -18,6 +18,8 @@ namespace CsWSC.LanguageServer;
 
 internal sealed record CompletionEntry( int Index, string Label, string Kind, string? Detail, string? SortText, string? FilterText, string InsertText );
 internal sealed record CompletionResult( int Start, int End, CompletionEntry[] Items );
+/// <summary>補完候補の詳細です。Edits は候補の挿入とは別に必要な変更 (未インポートの型の using の追加) です。</summary>
+internal sealed record CompletionDetail( string? Description, TextEditEntry[]? Edits );
 internal sealed record HoverResult( string Signature, string? Documentation, int Start, int End );
 internal sealed record SignatureEntry( string Label, string? Documentation, ParameterEntry[] Parameters );
 internal sealed record ParameterEntry( string Label, string? Documentation );
@@ -58,14 +60,19 @@ internal sealed partial class LanguageService( ScriptWorkspace workspace ) {
 		return new CompletionResult( list.Span.Start, list.Span.End, items );
 	}
 
-	/// <summary>補完候補の説明 (シグネチャと XML ドキュメント) です。</summary>
+	/// <summary>補完候補の説明 (シグネチャと XML ドキュメント) と、挿入とは別に必要な変更です。</summary>
 	/// <param name="index">直前の補完結果での候補の番号です。</param>
-	/// <returns>説明の文字列です。直前の補完結果が無いか、番号が範囲外か、説明が無ければ null です。</returns>
-	public async Task<string?> ResolveCompletionAsync( int index ) {
+	/// <returns>候補の詳細です。直前の補完結果が無いか、番号が範囲外なら null です。</returns>
+	public async Task<CompletionDetail?> ResolveCompletionAsync( int index ) {
 		if( _lastCompletion is not var (doc, list) || index < 0 || index >= list.ItemsList.Count ) return null;
 		var item = list.ItemsList[index];
 		var service = CompletionService.GetService( doc );
-		var description = service == null ? null : await service.GetDescriptionAsync( doc, item );
+		if( service == null ) return null;
+		return new CompletionDetail( await DescribeAsync( service, doc, list, item ), await AdditionalEditsAsync( service, doc, list, item ) );
+	}
+
+	private static async Task<string?> DescribeAsync( CompletionService service, Document doc, CompletionList list, CompletionItem item ) {
+		var description = await service.GetDescriptionAsync( doc, item );
 		if( description == null ) return null;
 
 		// 1 行目 (シグネチャ) は Roslyn の説明を使い、本文は XML ドキュメントの remarks・returns・example まで含めたものに差し替える
@@ -73,6 +80,27 @@ internal sealed partial class LanguageService( ScriptWorkspace workspace ) {
 		var symbol = await FindCompletionSymbolAsync( doc, list.Span.Start, item.DisplayText );
 		var body = symbol == null ? null : Summary( symbol );
 		return body == null ? description.Text : $"{lines[0].TrimEnd()}\n{body}";
+	}
+
+	/// <summary>
+	/// 候補を選んだときに、名前の挿入より前に必要な変更 (未インポートの型なら using の追加) です。
+	/// Roslyn の変更は using の追加と名前の挿入が 1 つにまとまって返ることがあるので、変更後の全文から using の部分を取り出します。
+	/// </summary>
+	private static async Task<TextEditEntry[]?> AdditionalEditsAsync( CompletionService service, Document doc, CompletionList list, CompletionItem item ) {
+		var text = ( await doc.GetTextAsync() ).ToString();
+		var change = await service.GetChangeAsync( doc, item );
+		var changed = SourceText.From( text ).WithChanges( change.TextChanges ).ToString();
+		var span = list.Span;
+		// 挿入される名前は VS Code 側で入れるので、それ以外の部分 (using) が span より前に 1 か所だけ増えている場合だけ返す
+		var plain = text[..span.Start] + item.DisplayText + text[span.End..];
+		if( changed == plain ) return null;
+		var added = changed.Length - plain.Length;
+		if( added <= 0 ) return null;
+		var prefix = 0;
+		while( prefix < span.Start && changed[prefix] == text[prefix] ) prefix++;
+		var insert = changed.Substring( prefix, added );
+		if( text[..prefix] + insert + text[prefix..span.Start] + item.DisplayText + text[span.End..] != changed ) return null;
+		return [new TextEditEntry( prefix, prefix, insert )];
 	}
 
 	/// <summary>補完候補の名前から、その位置で参照できるシンボルを探します (a.b の b なら a の型のメンバーから)。</summary>

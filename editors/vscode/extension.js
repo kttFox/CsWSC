@@ -10,6 +10,10 @@ const fs = require('fs');
 const readline = require('readline');
 
 const LANGUAGE = 'cswsc';
+/** #r で参照するライブラリ (.cswsl)。通常の C# として解析する (実行はできない) */
+const LIBRARY_LANGUAGE = 'cswsl';
+/** 解析サーバーで解析するドキュメントか */
+const isAnalyzed = doc => doc.languageId === LANGUAGE || doc.languageId === LIBRARY_LANGUAGE;
 
 /** @type {Server | undefined} */
 let server;
@@ -112,16 +116,21 @@ const completionProvider = {
       item.filterText = i.filterText || undefined;
       item.range = range;
       item.csIndex = i.index;
+      item.csDoc = doc;
       return item;
     }));
   },
   async resolveCompletionItem(item, token) {
-    const text = server && await server.requestWithToken('resolve', { index: item.csIndex }, token);
-    if (text) {
-      const [signature, ...rest] = text.split(/\r?\n/);
+    const r = server && await server.requestWithToken('resolve', { index: item.csIndex }, token);
+    if (r?.description) {
+      const [signature, ...rest] = r.description.split(/\r?\n/);
       item.detail = signature;
       if (rest.length) item.documentation = new vscode.MarkdownString(rest.join('\n'));
     }
+    // 未インポートの型なら using の追加 (補完を要求したときのドキュメントの位置)
+    const doc = r?.edits && item.csDoc;
+    if (doc) item.additionalTextEdits = r.edits.map(e =>
+      vscode.TextEdit.replace(new vscode.Range(doc.positionAt(e.start), doc.positionAt(e.end)), e.newText));
     return item;
   },
 };
@@ -263,7 +272,7 @@ const semanticTokensProvider = {
 const timers = new Map();
 
 function scheduleDiagnostics(doc) {
-  if (doc.languageId !== LANGUAGE) return;
+  if (!isAnalyzed(doc)) return;
   const key = doc.uri.toString();
   clearTimeout(timers.get(key));
   timers.set(key, setTimeout(() => updateDiagnostics(doc), 500));
@@ -566,7 +575,7 @@ function activate(context) {
   diagnostics = vscode.languages.createDiagnosticCollection(LANGUAGE);
   startServer(context);
 
-  const selector = { language: LANGUAGE };
+  const selector = [{ language: LANGUAGE }, { language: LIBRARY_LANGUAGE }];
   context.subscriptions.push(
     log,
     diagnostics,
@@ -585,8 +594,13 @@ function activate(context) {
       scheduleDiagnostics(e.document);
       onScriptEdited(e);
     }),
+    // ライブラリを保存したら、参照しているスクリプトの診断を更新する (サーバーが保存を検知して読み直す)
+    vscode.workspace.onDidSaveTextDocument(doc => {
+      if (doc.languageId === LIBRARY_LANGUAGE)
+        vscode.workspace.textDocuments.filter(d => d.languageId === LANGUAGE).forEach(scheduleDiagnostics);
+    }),
     vscode.workspace.onDidCloseTextDocument(doc => {
-      if (doc.languageId !== LANGUAGE) return;
+      if (!isAnalyzed(doc)) return;
       diagnostics.delete(doc.uri);
       server?.request('close', { uri: doc.uri.toString() });
     }),
