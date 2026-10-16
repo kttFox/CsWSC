@@ -47,8 +47,10 @@ internal static class ScriptProcess {
 	/// </summary>
 	public static void StartEarly( string source, string? path ) {
 		try {
+			LaunchTrace.Mark( "子プロセス起動要求" );
 			var process = StartProcess( warmup: false );
-			WriteRequest( process, "run", source, path );
+			LaunchTrace.Mark( "要求送信" );
+			WriteRequest( process, "run", source, path, LaunchTrace.Take() );
 			_early = (source, path, process);
 		} catch( Exception ) { _early = null; }
 	}
@@ -76,8 +78,10 @@ internal static class ScriptProcess {
 		return Process.Start( psi ) ?? throw new InvalidOperationException( "スクリプトのプロセスを起動できません。" );
 	}
 
-	private static void WriteRequest( Process process, string kind, string source, string? path ) {
+	/// <param name="trace">起動時間の記録 (<see cref="LaunchTrace"/>) です。種類の行にタブ区切りで付けます。</param>
+	private static void WriteRequest( Process process, string kind, string source, string? path, string? trace = null ) {
 		var stdin = process.StandardInput;
+		if( trace != null ) kind += "\t" + trace;
 		stdin.Write( $"{kind}\n{path}\n{source.Length.ToString( CultureInfo.InvariantCulture )}\n" );
 		stdin.Write( source );
 		stdin.Flush();
@@ -89,6 +93,7 @@ internal static class ScriptProcess {
 		_standby = null;
 		if( process is { HasExited: false } ) return process;
 		process?.Dispose();
+		LaunchTrace.Mark( "待機プロセスなし" );
 		// すぐ使うので温めない (温めるとスクリプトの実行と CPU を取り合う)
 		return StartProcess( warmup: false );
 	}
@@ -144,6 +149,7 @@ internal static class ScriptProcess {
 		// 同じスクリプトを事前コンパイル中なら、二重にコンパイルせず終わるのを待つ
 		if( _precompile is { } p && p.Source == source && p.Path == path ) {
 			using var notice = CompilingNotice.Begin();
+			LaunchTrace.Mark( "事前コンパイル待ち" );
 			await p.Task;
 		}
 		try {
@@ -159,9 +165,11 @@ internal static class ScriptProcess {
 			// 先に始めた実行を引き継ぐ (要求は送信済み)
 			_early = null;
 			process = early.Process;
+			LaunchTrace.Take(); // 記録は先に始めたときに渡し済み (PlayAsync が始めた分は捨てる)
 		} else {
 			process = TakeProcess();
-			WriteRequest( process, "run", source, path );
+			LaunchTrace.Mark( "要求送信" );
+			WriteRequest( process, "run", source, path, LaunchTrace.Take() );
 		}
 		using var _process = process;
 		_running = process;
@@ -248,9 +256,16 @@ internal static class ScriptProcess {
 	public static int ChildMain( bool warmup ) {
 		var stdout = new StreamWriter( Console.OpenStandardOutput(), Utf8 ) { AutoFlush = true, NewLine = "\n" };
 		var stdin = new StreamReader( Console.OpenStandardInput(), Utf8 );
+		var mainStarted = DateTime.UtcNow;
+		// 作成時刻は要求を待つ前に取っておく (初回は Process の読み込みなどで遅く、遅いマシンでは要求を受けてからだと 1 秒以上かかった)
+		var processStarted = LaunchTrace.ProcessStartTime();
 		// 待機用なら要求を待つ間に準備しておく
 		// (キャッシュが無いときのコンパイルが約 1 秒 → 約 0.1 秒、キャッシュがあるときの実行開始も数十 ms 短くなる)
-		if( warmup ) new Thread( () => { try { ScriptRunner.Warmup( ScriptRunner.DefaultCacheDirectory ); } catch( Exception ) { } } ) { IsBackground = true, Priority = ThreadPriority.BelowNormal, Name = "CsWSC warmup" }.Start();
+		long warmupEnded = 0; // 温めが終わった時刻 (UTC の Ticks、起動時間の記録用)
+		if( warmup ) new Thread( () => {
+			try { ScriptRunner.Warmup( ScriptRunner.DefaultCacheDirectory ); } catch( Exception ) { }
+			Interlocked.Exchange( ref warmupEnded, DateTime.UtcNow.Ticks );
+		} ) { IsBackground = true, Priority = ThreadPriority.BelowNormal, Name = "CsWSC warmup" }.Start();
 		var gate = new object();
 		void Send( string message ) {
 			lock( gate ) {
@@ -259,12 +274,26 @@ internal static class ScriptProcess {
 		}
 
 		// 要求を読む
-		if( stdin.ReadLine() is not { } kind || stdin.ReadLine() is not { } pathLine
+		if( stdin.ReadLine() is not { } kind ) return 1;
+		var firstLineRead = DateTime.UtcNow;
+		if( stdin.ReadLine() is not { } pathLine
 			|| !int.TryParse( stdin.ReadLine(), NumberStyles.None, CultureInfo.InvariantCulture, out var length ) ) return 1;
 		var buffer = new char[length];
 		if( stdin.ReadBlock( buffer, 0, length ) != length ) return 1;
 		var source = new string( buffer );
 		var path = pathLine.Length == 0 ? null : pathLine;
+		var requestRead = DateTime.UtcNow;
+		// 起動時間の記録が付いていれば、この子プロセスの段階を足していく
+		string? trace = null;
+		if( kind.Split( '\t', 2 ) is [var k, var t] ) {
+			kind = k;
+			trace = LaunchTrace.Append( t, "子プロセス作成", processStarted );
+			trace = LaunchTrace.Append( trace, "子 Main 開始", mainStarted );
+			if( Interlocked.Read( ref warmupEnded ) is var ended and > 0 ) trace = LaunchTrace.Append( trace, "温め終了", new DateTime( ended, DateTimeKind.Utc ) );
+			else if( warmup ) trace = LaunchTrace.Append( trace, "温め中", requestRead );
+			trace = LaunchTrace.Append( trace, "要求 1 行目受信", firstLineRead );
+			trace = LaunchTrace.Append( trace, "要求受信", requestRead );
+		}
 
 		if( kind == "compile" ) {
 			try { ScriptRunner.Precompile( source, path, ScriptRunner.DefaultCacheDirectory ); } catch( Exception ) { return 1; }
@@ -287,7 +316,12 @@ internal static class ScriptProcess {
 		PrintLog.Start( path );
 		try {
 			ScriptRunner.Run( source, text => { PrintLog.Write( path, text ); Send( "print\t" + Escape( text ) ); }, cts.Token, new LogWindowProxy( Send ),
-				path, ScriptRunner.DefaultCacheDirectory, compiling => Send( compiling ? "compiling\t1" : "compiling\t0" ) );
+				path, ScriptRunner.DefaultCacheDirectory, compiling => {
+					if( trace != null ) trace = LaunchTrace.Append( trace, compiling ? "コンパイル開始" : "コンパイル終了", DateTime.UtcNow );
+					Send( compiling ? "compiling\t1" : "compiling\t0" );
+				}, () => {
+					if( trace != null ) PrintLog.WriteLaunch( path, LaunchTrace.Describe( LaunchTrace.Append( trace, "実行開始", DateTime.UtcNow ) ) );
+				} );
 			PrintLog.End( path, "正常終了" );
 			Send( "ok" );
 		} catch( OperationCanceledException ) {

@@ -22,7 +22,15 @@ internal static class PrintLog {
 	/// <summary>1 件追記します。</summary>
 	/// <param name="scriptPath">スクリプトのパスです。未保存なら null です。</param>
 	/// <param name="text">Print した文字です。</param>
-	public static void Write( string? scriptPath, string text ) {
+	public static void Write( string? scriptPath, string text ) => Write( scriptPath, text, null );
+
+	/// <summary>起動時間 (<see cref="LaunchTrace"/>) を、Print とは別のファイル (launch.log) に追記します。日が変わって最初に書くときに中身を消します。</summary>
+	/// <param name="scriptPath">スクリプトのパスです。未保存なら null です。</param>
+	/// <param name="text">書く内容です。</param>
+	public static void WriteLaunch( string? scriptPath, string text ) => Write( scriptPath, text, "launch.log" );
+
+	/// <param name="dailyFile">その日の分だけ残すファイルの名前です。null なら日付のファイルに追記します。</param>
+	private static void Write( string? scriptPath, string text, string? dailyFile ) {
 		var now = DateTime.Now;
 		var name = scriptPath is null ? "(未保存)" : Path.GetFileName( scriptPath );
 		var prefix = $"{now:HH:mm:ss.fff} [{name}:{Environment.ProcessId}] ";
@@ -33,7 +41,12 @@ internal static class PrintLog {
 		lock( Gate ) {
 			try {
 				System.IO.Directory.CreateDirectory( Directory );
-				File.AppendAllText( Path.Combine( Directory, $"{now:yyyy-MM-dd}.log" ), sb.ToString(), Utf8 );
+				if( dailyFile != null ) {
+					// 最後に書いたのが今日でなければ、前の日の分を消して書き直す
+					var file = Path.Combine( Directory, dailyFile );
+					if( File.Exists( file ) && File.GetLastWriteTime( file ).Date == now.Date ) File.AppendAllText( file, sb.ToString(), Utf8 );
+					else File.WriteAllText( file, sb.ToString(), Utf8 );
+				} else File.AppendAllText( Path.Combine( Directory, $"{now:yyyy-MM-dd}.log" ), sb.ToString(), Utf8 );
 			} catch( Exception e ) when( e is IOException or UnauthorizedAccessException ) { }
 		}
 	}

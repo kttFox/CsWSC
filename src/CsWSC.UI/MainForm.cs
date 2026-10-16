@@ -145,7 +145,10 @@ public partial class MainForm : Form {
 	private async void PlayButton_Click( object sender, EventArgs e ) {
 		if( _recorder.IsRecording ) StopRecording();
 		else if( _cts != null ) _cts.Cancel();
-		else await PlayAsync();
+		else {
+			LaunchTrace.Begin( "再生ボタン" );
+			await PlayAsync();
+		}
 	}
 
 	private void RecordButton_Click( object sender, EventArgs e ) {
@@ -295,7 +298,7 @@ public partial class MainForm : Form {
 				running.Dispose();
 				_launcherProcesses.Remove( key );
 			}
-			if( fromHotkey ) LaunchTrace.Begin( "ホットキー受信" );
+			LaunchTrace.Begin( fromHotkey ? "ホットキー受信" : "メニュー選択" );
 			// 遅いマシンでは起動に時間がかかるので、先に表示して押したのが効いたと分かるようにする
 			if( fromHotkey && _settings.HotkeyLaunchNotice ) {
 				LaunchNotice.Started( path );
@@ -320,7 +323,7 @@ public partial class MainForm : Form {
 			if( fromHotkey && _settings.HotkeyLaunchNotice ) LaunchNotice.Skipped( path, _recorder.IsRecording ? "記録中" : "再生中" );
 			return;
 		}
-		if( fromHotkey ) LaunchTrace.Begin( "ホットキー受信" );
+		LaunchTrace.Begin( fromHotkey ? "ホットキー受信" : "メニュー選択" );
 		if( fromHotkey && _settings.HotkeyLaunchNotice ) {
 			LaunchNotice.Started( path );
 			LaunchTrace.Mark( "通知表示" );
@@ -414,6 +417,8 @@ public partial class MainForm : Form {
 	// ---- 再生 ----
 
 	private async Task PlayAsync() {
+		// 入口 (ボタン・ホットキー・ランチャー) で始めていなければ、ここから記録する
+		if( !LaunchTrace.Active ) LaunchTrace.Begin( "再生開始" );
 		if( _recordedSource != null ) {
 			await RunAsync( _recordedSource, null );
 			return;
@@ -789,7 +794,11 @@ public partial class MainForm : Form {
 				if( _cts != null || _recorder.IsRecording ) {
 					if( _settings.HotkeyLaunchNotice ) LaunchNotice.Skipped( _scriptPath, _recorder.IsRecording ? "記録中" : "再生中" );
 				} else if( _scriptPath != null || _recordedSource != null ) {
-					if( _settings.HotkeyLaunchNotice ) LaunchNotice.Started( _recordedSource != null ? null : _scriptPath );
+					LaunchTrace.Begin( "ホットキー受信" );
+					if( _settings.HotkeyLaunchNotice ) {
+						LaunchNotice.Started( _recordedSource != null ? null : _scriptPath );
+						LaunchTrace.Mark( "通知表示" );
+					}
 					_ = PlayAsync();
 				}
 				break;

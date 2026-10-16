@@ -148,8 +148,9 @@ public static class ScriptRunner {
 	/// スクリプトを実行します。呼び出したスレッドで同期的に実行されます。
 	/// cacheDirectory を指定するとコンパイル結果を保存し、次回からは Roslyn を読み込まずに実行します。
 	/// compiling はキャッシュが使えずコンパイルするときに、コンパイルの前 (true) と後 (false) に呼ばれます (待機表示用)。
+	/// executing はコンパイル (またはキャッシュの読み込み) が済み、実行を始める直前に呼ばれます (起動時間の計測用)。
 	/// </summary>
-	public static void Run( string code, Action<string> output, CancellationToken cancellation, ILogWindow? logWindow = null, string? path = null, string? cacheDirectory = null, Action<bool>? compiling = null ) {
+	public static void Run( string code, Action<string> output, CancellationToken cancellation, ILogWindow? logWindow = null, string? path = null, string? cacheDirectory = null, Action<bool>? compiling = null, Action? executing = null ) {
 		ThrowIfLibrary( path );
 		var filePath = System.IO.Path.GetFullPath( path ?? System.IO.Path.Combine( AppContext.BaseDirectory, ScriptPath ) );
 		var cachePath = ScriptCache.GetPath( cacheDirectory, code, filePath );
@@ -159,6 +160,7 @@ public static class ScriptRunner {
 			compiling?.Invoke( true );
 			try { compiled = CompileToImage( code, path, cachePath ); } finally { compiling?.Invoke( false ); }
 		}
+		executing?.Invoke();
 		Execute( compiled, filePath, output, cancellation, logWindow, setStopToken: true );
 	}
 
@@ -254,14 +256,18 @@ public static class ScriptRunner {
 	/// 小さなスクリプトをコンパイル・実行して、Roslyn と実行経路の JIT・読み込みを済ませます (待機用プロセス向け)。
 	/// 初回コンパイルは約 1 秒かかりますが、これを済ませておくと 2 回目以降は約 0.1 秒になります。
 	/// 実行経路 (キャッシュのハッシュ・アセンブリ読み込み・ScriptGlobals 生成) も初回は数十 ms かかります。
-	/// 本物の実行と並行しても影響しないよう、キャッシュには保存せず停止チェックの対象も変えません。
+	/// 実行経路を先に温められるよう、温め用のスクリプトはキャッシュに保存します (書き込みはアトミックなので、本物の実行と並行しても影響しない)。
+	/// 停止チェックの対象は変えません。
 	/// </summary>
 	public static void Warmup( string? cacheDirectory ) {
 		const string Code = "for (var i = 0; i < 1; i++) { }";
 		var filePath = System.IO.Path.Combine( AppContext.BaseDirectory, ScriptPath );
-		var compiled = CompileToImage( Code, null, null );
-		_ = ScriptCache.GetPath( cacheDirectory, Code, filePath );
-		Execute( compiled, filePath, _ => { }, CancellationToken.None, null, setStopToken: false );
+		var cachePath = ScriptCache.GetPath( cacheDirectory, Code, filePath );
+		// キャッシュから実行する経路を先に温める (Roslyn の温めは遅いマシンで十数秒かかり、その間に来たキャッシュ済みのスクリプトの実行が遅くなるため)
+		var cached = cachePath != null ? ScriptCache.TryRead( cachePath ) : null;
+		if( cached != null ) Execute( cached, filePath, _ => { }, CancellationToken.None, null, setStopToken: false );
+		var compiled = CompileToImage( Code, null, cachePath );
+		if( cached == null ) Execute( compiled, filePath, _ => { }, CancellationToken.None, null, setStopToken: false );
 	}
 
 	/// <summary>停止チェックを入れてコンパイルし、アセンブリのバイト列を返します。cachePath があれば保存します。</summary>

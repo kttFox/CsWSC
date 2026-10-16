@@ -21,6 +21,8 @@ static class Program {
 			return;
 		}
 
+		LaunchTrace.Inherit();
+
 		// 起動引数のスクリプトは、窓の準備 (ApplicationConfiguration.Initialize を含む) を待たずに実行を始める
 		// (StartEarly は窓を作らないので Initialize より前に呼んでよい)
 		string? source = null;
@@ -34,6 +36,8 @@ static class Program {
 			try { source = File.ReadAllText( path ); } catch( Exception ) { }
 			if( source != null ) {
 				ScriptProcess.KeepStandby = false; // 終わったら終了するので、次の再生用の待機プロセスは要らない
+				// 別プロセスとして起動されたのでなければ (コマンドラインなど)、このプロセスが作られた時刻から記録する
+				if( !LaunchTrace.Active ) LaunchTrace.BeginAtProcessStart();
 				ScriptProcess.StartEarly( source, path );
 			}
 		}
