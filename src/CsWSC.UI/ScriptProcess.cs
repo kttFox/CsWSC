@@ -285,7 +285,7 @@ internal static class ScriptProcess {
 		} ) { IsBackground = true, Name = "CsWSC stop" }.Start();
 
 		try {
-			ScriptRunner.Run( source, text => Send( "print\t" + Escape( text ) ), cts.Token, new LogWindowProxy( Send ),
+			ScriptRunner.Run( source, text => { PrintLog.Write( path, text ); Send( "print\t" + Escape( text ) ); }, cts.Token, new LogWindowProxy( Send ),
 				path, ScriptRunner.DefaultCacheDirectory, compiling => Send( compiling ? "compiling\t1" : "compiling\t0" ) );
 			Send( "ok" );
 		} catch( OperationCanceledException ) {
