@@ -195,6 +195,33 @@ const renameProvider = {
   },
 };
 
+// ---- 参照数 (定義の上に「N 個の参照」を表示。数えるのはこのドキュメント内の参照) ----
+
+/** 参照数の設定 (cswsc.codeLens.*) と、サーバーに渡す定義の種類 */
+const CODE_LENS_KINDS = { methods: 'method', properties: 'property', fields: 'field', events: 'event', types: 'type' };
+const codeLensChanged = new vscode.EventEmitter();
+
+const codeLensProvider = {
+  onDidChangeCodeLenses: codeLensChanged.event,
+  async provideCodeLenses(doc, token) {
+    const config = vscode.workspace.getConfiguration('cswsc.codeLens', doc);
+    if (!config.get('enabled', true)) return [];
+    const kinds = Object.entries(CODE_LENS_KINDS).filter(([key]) => config.get(key, true)).map(([, kind]) => kind);
+    if (kinds.length === 0) return [];
+    const r = server && await server.requestWithToken('referenceLenses', { ...params(doc), kinds }, token);
+    if (!r) return undefined;
+    return r.map(lens => {
+      const range = new vscode.Range(doc.positionAt(lens.start), doc.positionAt(lens.end));
+      const title = `${lens.references.length} 個の参照`;
+      // 参照が無ければクリックしても何もしない
+      if (lens.references.length === 0) return new vscode.CodeLens(range, { title, command: '' });
+      const locations = lens.references.map(e =>
+        new vscode.Location(doc.uri, new vscode.Range(doc.positionAt(e.start), doc.positionAt(e.end))));
+      return new vscode.CodeLens(range, { title, command: 'editor.action.showReferences', arguments: [doc.uri, range.start, locations] });
+    });
+  },
+};
+
 // ---- コードアクション (C# と同じく Roslyn 組み込みのコード修正・リファクタリング) ----
 
 // 一覧では題名だけを受け取り、選ばれてから変更内容を計算する (resolveCodeAction)
@@ -604,11 +631,16 @@ function activate(context) {
     vscode.languages.registerSignatureHelpProvider(selector, signatureProvider, '(', ','),
     vscode.languages.registerDefinitionProvider(selector, definitionProvider),
     vscode.languages.registerRenameProvider(selector, renameProvider),
+    vscode.languages.registerCodeLensProvider(selector, codeLensProvider),
     vscode.languages.registerCodeActionsProvider(selector, codeActionProvider,
       { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix, vscode.CodeActionKind.Refactor] }),
     vscode.languages.registerDocumentFormattingEditProvider(selector, formattingProvider),
     vscode.languages.registerDocumentRangeFormattingEditProvider(selector, formattingProvider),
     vscode.languages.registerDocumentSemanticTokensProvider(selector, semanticTokensProvider, semanticLegend),
+    codeLensChanged,
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('cswsc.codeLens')) codeLensChanged.fire();
+    }),
     vscode.workspace.onDidOpenTextDocument(scheduleDiagnostics),
     vscode.workspace.onDidChangeTextDocument(e => {
       scheduleDiagnostics(e.document);

@@ -1,7 +1,7 @@
 {
   "name": "cswsc",
   "displayName": "CsWSC",
-  "description": "CsWSC スクリプト (.csws) とライブラリ (.cswsl) の補完・ホバー・引数ヒント・エラー表示・定義へ移動・名前の変更・書式設定・実行",
+  "description": "CsWSC スクリプト (.csws) とライブラリ (.cswsl) の補完・ホバー・引数ヒント・エラー表示・定義へ移動・名前の変更・参照数・書式設定・実行",
   "version": "0.1.0",
   "publisher": "kttFox",
   "license": "SEE LICENSE IN LICENSE.md",
@@ -120,6 +120,36 @@
           "type": "string",
           "default": "",
           "description": "解析サーバー (cswsc-server.exe) のパス。空なら拡張機能に同梱のものを使う。"
+        },
+        "cswsc.codeLens.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "定義の上に、そのファイル内の参照数を表示する (CodeLens)。表示する定義の種類は下の各設定で選ぶ。"
+        },
+        "cswsc.codeLens.methods": {
+          "type": "boolean",
+          "default": true,
+          "description": "参照数を、メソッドとローカル関数に表示する。"
+        },
+        "cswsc.codeLens.properties": {
+          "type": "boolean",
+          "default": true,
+          "description": "参照数を、プロパティに表示する。"
+        },
+        "cswsc.codeLens.fields": {
+          "type": "boolean",
+          "default": true,
+          "description": "参照数を、フィールド・定数・列挙型のメンバーに表示する。"
+        },
+        "cswsc.codeLens.events": {
+          "type": "boolean",
+          "default": true,
+          "description": "参照数を、イベントに表示する。"
+        },
+        "cswsc.codeLens.types": {
+          "type": "boolean",
+          "default": true,
+          "description": "参照数を、クラス・構造体・インターフェース・列挙型・デリゲートに表示する。"
         },
         "cswsc.sourceLink": {
           "type": "boolean",
