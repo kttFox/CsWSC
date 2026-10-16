@@ -24,12 +24,28 @@ public partial class PrintForm : Form, ILogWindow {
 		SetWindowPos( Handle, insertAfter, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE );
 	}
 
-	// UWSC と同様、このアプリがアクティブな間だけ最前面にし、他のアプリへ切り替わったら解除する
+	// スクリプト実行中か
+	private bool _running;
+
+	/// <summary>
+	/// スクリプトの実行状態を設定します。UWSC と同様、実行中は他のアプリがアクティブでも最前面に表示します。
+	/// </summary>
+	public void SetRunning( bool running ) {
+		_running = running;
+		UpdateZOrder();
+	}
+
+	// 実行中は常に最前面、それ以外はこのアプリがアクティブな間だけ最前面にする
 	// (TopMost プロパティはアクティブ化を伴うため使わない)
+	private void UpdateZOrder() {
+		if( !IsHandleCreated ) return;
+		SetZOrder( _running || ActiveForm != null ? HWND_TOPMOST : HWND_NOTOPMOST );
+	}
+
 	protected override void WndProc( ref Message m ) {
 		const int WM_ACTIVATEAPP = 0x001C;
 		if( m.Msg == WM_ACTIVATEAPP && IsHandleCreated ) {
-			SetZOrder( m.WParam != IntPtr.Zero ? HWND_TOPMOST : HWND_NOTOPMOST );
+			SetZOrder( _running || m.WParam != IntPtr.Zero ? HWND_TOPMOST : HWND_NOTOPMOST );
 		}
 		base.WndProc( ref m );
 	}
@@ -37,7 +53,7 @@ public partial class PrintForm : Form, ILogWindow {
 	// 表示した時点で既にこのアプリがアクティブなら WM_ACTIVATEAPP は来ないので、ここで合わせる
 	protected override void OnVisibleChanged( EventArgs e ) {
 		base.OnVisibleChanged( e );
-		if( Visible && ActiveForm != null ) SetZOrder( HWND_TOPMOST );
+		if( Visible ) UpdateZOrder();
 	}
 
 	public void Clear() => OnUi( ClearText );

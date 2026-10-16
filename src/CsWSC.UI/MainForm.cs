@@ -49,7 +49,12 @@ public partial class MainForm : Form {
 	/// <summary>再生・記録のために自動でトレイに収納したかどうかです (終わったら元に戻す)。</summary>
 	private bool _autoTrayed;
 
-	public MainForm() {
+	/// <summary>起動引数で渡され、表示後すぐに実行するスクリプトです (null なら通常起動)。</summary>
+	private readonly (string Path, string Source)? _autoRun;
+
+	/// <param name="autoRun">起動引数 (関連付けなど) のスクリプト。表示後すぐに実行し、終わったらアプリを終了します。</param>
+	public MainForm( (string Path, string Source)? autoRun = null ) {
+		_autoRun = autoRun;
 		InitializeComponent();
 		ApplyButtonImages();
 		FileDrop.Enable( this, path => SetScript( path ) );
@@ -81,12 +86,25 @@ public partial class MainForm : Form {
 		}
 	}
 
-	protected override void OnShown( EventArgs e ) {
+	/// <summary>起動引数のスクリプトを実行するときは、操作対象の窓からフォーカスを奪わないようアクティブにしません。</summary>
+	protected override bool ShowWithoutActivation => _autoRun != null;
+
+	protected override async void OnShown( EventArgs e ) {
 		base.OnShown( e );
 		if( _printForm.StartPosition != FormStartPosition.Manual ) {
 			// 初回はメインウインドウのすぐ上に表示する
 			_printForm.StartPosition = FormStartPosition.Manual;
 			_printForm.Location = new Point( Left, Math.Max( Screen.FromControl( this ).WorkingArea.Top, Top - _printForm.Height ) );
+		}
+		if( _autoRun is var (path, source) ) {
+			// SetScript は事前コンパイルも始めてしまうので使わない (実行は Program で先に始めている)
+			_scriptPath = path;
+			_settings.AddRecent( path );
+			UpdateButtons();
+			await RunAsync( source, null, path );
+			_exiting = true;
+			Close();
+			return;
 		}
 		if( _settings.TrayOnStart ) MinimizeToTray();
 		ScriptProcess.Prepare();
@@ -415,6 +433,7 @@ public partial class MainForm : Form {
 		AutoTray( running );
 		// UWSC と同様、実行中は停止ボタンを最前面に出しておく (操作中の窓からフォーカスは奪わない)
 		SetTopMostNoActivate( running || _settings.TopMost );
+		_printForm.SetRunning( running );
 	}
 
 	[DllImport( "user32.dll" )] private static extern bool SetWindowPos( IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags );
@@ -589,6 +608,14 @@ public partial class MainForm : Form {
 	private List<string> RegisterHotkeys() {
 		var failed = new List<string>();
 		if( DesignMode || !IsHandleCreated ) return failed;
+		// 起動引数のスクリプトを実行するときは、Pause キーと停止キーだけを登録する。
+		// 通常起動中の CsWSC が同じキーを RegisterHotKey していても受けられるよう、設定に関わらずフック方式にする
+		if( _autoRun != null ) {
+			_hotkeys.Add( new Hotkey( "", "PAUSE" ), () => OnHotkey( HotkeyPause ) );
+			var stop = _settings.StopHotkey;
+			if( stop.Enabled && !_hotkeys.Add( stop, () => OnHotkey( HotkeyStop ) ) ) failed.Add( $"{stop} (停止)" );
+			return failed;
+		}
 		RegisterHotKey( Handle, HotkeyPause, 0, VK_PAUSE ); // 非常停止用 (常に有効)
 		foreach( var (id, hotkey, name) in new[]
 		{

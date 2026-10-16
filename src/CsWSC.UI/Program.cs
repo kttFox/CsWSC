@@ -2,7 +2,7 @@ namespace CsWSC.UI;
 
 static class Program {
 	/// <summary>
-	///  CsWSC.exe [スクリプト.csws]  … 引数を渡すと、メイン画面を出さずに実行し、終わったら終了します。
+	///  CsWSC.exe [スクリプト.csws]  … 引数を渡すと、メイン画面を停止ボタンの状態で出して実行し、終わったら終了します。
 	///  ファイルを読めなければ通常どおり起動します。
 	///  CsWSC.exe --run-script [--warmup]  … スクリプトを実行する子プロセスとして動きます (内部用)。
 	///  CsWSC.exe --debug スクリプト.csws  … デバッグ実行します (VS Code 拡張から使う)。
@@ -40,8 +40,7 @@ static class Program {
 
 		ApplicationConfiguration.Initialize();
 		if( source != null ) {
-			using var host = new ScriptHost( source, args[0] );
-			Application.Run( host );
+			Application.Run( new MainForm( (args[0], source) ) );
 			ScriptProcess.Shutdown();
 			return;
 		}
