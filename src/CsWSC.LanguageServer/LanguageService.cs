@@ -293,14 +293,18 @@ internal sealed partial class LanguageService( ScriptWorkspace workspace ) {
 
 		var before = await ErrorCountAsync( doc );
 		var conflict = new RenameResult( null, $"'{newName}' に変更すると、ほかの名前と衝突するなどでエラーになります。" );
-		Solution solution;
+		Document renamed;
 		try {
-			solution = await Renamer.RenameSymbolAsync( doc.Project.Solution, symbol, new SymbolRenameOptions(), newName );
+			var solution = await Renamer.RenameSymbolAsync( doc.Project.Solution, symbol, new SymbolRenameOptions(), newName );
+			renamed = solution.GetDocument( doc.Id )!;
 		} catch( NullReferenceException ) {
-			// スクリプトのトップレベルの変数で衝突すると、Roslyn の衝突検出が例外を出す
-			return conflict;
+			// Roslyn の衝突検出は、スクリプトのトップレベルの変数での衝突や、#load 先の関数の呼び出しを
+			// 書き換え範囲に含むと例外を出す (#load 先のツリーがソリューションのドキュメントでないため)。
+			// そのときは自前で書き換え、名前の指す先が変わらないか調べる
+			var manual = await RenameManuallyAsync( doc, symbol, bare, newName );
+			if( manual == null ) return conflict;
+			renamed = manual;
 		}
-		var renamed = solution.GetDocument( doc.Id )!;
 		// 既にある名前と衝突するなどでエラーが増えるなら変更しない
 		if( await ErrorCountAsync( renamed ) > before ) return conflict;
 		var changes = await renamed.GetTextChangesAsync( doc );
@@ -318,11 +322,7 @@ internal sealed partial class LanguageService( ScriptWorkspace workspace ) {
 		if( !token.IsKind( SyntaxKind.IdentifierToken ) && offset > 0 ) token = root.FindToken( offset - 1 );
 		if( !token.IsKind( SyntaxKind.IdentifierToken ) ) return (null, token, "名前の上で実行してください。");
 
-		var symbol = await SymbolFinder.FindSymbolAtPositionAsync( doc, token.SpanStart );
-		// new Foo() のコンストラクターは型の名前を変える
-		if( symbol is IMethodSymbol { MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor or MethodKind.Destructor } ctor ) symbol = ctor.ContainingType;
-		if( symbol is IMethodSymbol { ReducedFrom: { } reduced } ) symbol = reduced;
-		symbol = symbol?.OriginalDefinition;
+		var symbol = await RenameSymbolAtAsync( doc, token );
 		if( symbol == null || symbol.IsImplicitlyDeclared ) return (null, token, "この名前は変更できません。");
 
 		var tree = await doc.GetSyntaxTreeAsync();
@@ -336,6 +336,55 @@ internal sealed partial class LanguageService( ScriptWorkspace workspace ) {
 			_ => false,
 		} ) return (null, token, $"'{symbol.Name}' は継承元の名前に合わせる必要があるので、変更できません。");
 		return (symbol, token, null);
+	}
+
+	/// <summary>token の名前が指す、名前の変更の単位となるシンボルです。</summary>
+	private static async Task<ISymbol?> RenameSymbolAtAsync( Document doc, SyntaxToken token ) {
+		var symbol = await SymbolFinder.FindSymbolAtPositionAsync( doc, token.SpanStart );
+		// new Foo() のコンストラクターは型の名前を変える
+		if( symbol is IMethodSymbol { MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor or MethodKind.Destructor } ctor ) symbol = ctor.ContainingType;
+		if( symbol is IMethodSymbol { ReducedFrom: { } reduced } ) symbol = reduced;
+		return symbol?.OriginalDefinition;
+	}
+
+	/// <summary>
+	/// Renamer を使わずに、このドキュメントで symbol を指す名前をすべて newName に書き換えます。
+	/// 書き換えた名前がすべて同じシンボルを指し、もともと newName だった名前がそれを指さないとき (指す先が変わらないとき) だけ、
+	/// 書き換えたドキュメントを返します。
+	/// </summary>
+	private static async Task<Document?> RenameManuallyAsync( Document doc, ISymbol symbol, string bare, string newName ) {
+		var root = ( await doc.GetSyntaxRootAsync() )!;
+		var targets = new List<SyntaxToken>();
+		var existing = new List<SyntaxToken>();
+		foreach( var t in root.DescendantTokens() ) {
+			if( !t.IsKind( SyntaxKind.IdentifierToken ) ) continue;
+			if( t.ValueText == bare ) existing.Add( t );
+			else if( t.ValueText == symbol.Name && SymbolEqualityComparer.Default.Equals( await RenameSymbolAtAsync( doc, t ), symbol ) ) targets.Add( t );
+		}
+		if( targets.Count == 0 ) return null;
+
+		var renamedMark = new SyntaxAnnotation();
+		var existingMark = new SyntaxAnnotation();
+		var newRoot = root.ReplaceTokens( targets.Concat( existing ), ( original, _ ) =>
+			targets.Contains( original )
+				? SyntaxFactory.Identifier( original.LeadingTrivia, newName, original.TrailingTrivia ).WithAdditionalAnnotations( renamedMark )
+				: original.WithAdditionalAnnotations( existingMark ) );
+		var renamed = doc.WithSyntaxRoot( newRoot );
+		newRoot = ( await renamed.GetSyntaxRootAsync() )!;
+
+		ISymbol? renamedSymbol = null;
+		foreach( var t in newRoot.GetAnnotatedTokens( renamedMark ) ) {
+			var s = await RenameSymbolAtAsync( renamed, t );
+			if( s == null || renamedSymbol != null && !SymbolEqualityComparer.Default.Equals( s, renamedSymbol ) ) return null;
+			renamedSymbol = s;
+		}
+		// #load 先などの同じ名前の定義を指すようになっていないか
+		var tree = await renamed.GetSyntaxTreeAsync();
+		if( renamedSymbol == null || renamedSymbol.Locations.Any( l => l.SourceTree != tree ) ) return null;
+		foreach( var t in newRoot.GetAnnotatedTokens( existingMark ) ) {
+			if( SymbolEqualityComparer.Default.Equals( await RenameSymbolAtAsync( renamed, t ), renamedSymbol ) ) return null;
+		}
+		return renamed;
 	}
 
 	private static async Task<int> ErrorCountAsync( Document doc ) =>

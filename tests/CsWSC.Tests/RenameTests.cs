@@ -88,6 +88,24 @@ public class RenameTests : IDisposable {
 	}
 
 	[Fact]
+	public async Task ParameterPassedToLoadedFunction() {
+		// #load 先の関数の呼び出しを含むと Roslyn の Renamer が例外を出すので、自前で書き換える
+		File.WriteAllText( Path.Combine( _dir, "lib.csws" ), "bool IsEmpty( int x ) => x == 0;\r\n" );
+		Assert.Equal( "#load \"lib.csws\"\r\nbool Sell( int index ) { if( !IsEmpty( index ) ) return true; return false; }",
+			await Rename( "#load \"lib.csws\"\r\nbool Sell( int |count ) { if( !IsEmpty( count ) ) return true; return false; }", "index" ) );
+	}
+
+	[Fact]
+	public async Task Conflict_WithLoadedFunction_Rejected() {
+		// 書き換えると #load 先の変数を指すようになる場合
+		File.WriteAllText( Path.Combine( _dir, "lib.csws" ), "bool IsEmpty( int x ) => x == 0;\r\nint total = 0;\r\n" );
+		var text = "#load \"lib.csws\"\r\nbool Sell( int count ) { if( !IsEmpty( count ) ) return true; return total > 0; }";
+		var r = await _service.RenameAsync( Uri, text, text.IndexOf( "count" ), "total" );
+		Assert.Null( r.Edits );
+		Assert.NotNull( r.Error );
+	}
+
+	[Fact]
 	public async Task MetadataAndLoaded_Rejected() {
 		Assert.Contains( "CsWSC や .NET", await PrepareError( "Pr|int( 1 );" ) );
 		Assert.Contains( "CsWSC や .NET", await PrepareError( "var sb = new System.Text.String|Builder();" ) );
