@@ -26,6 +26,8 @@ public partial class MainForm : Form {
 	private IntPtr _launcherPrevForeground;
 	/// <summary>ランチャーのホットキー (同じキー・同じ登録方式の設定をまとめたもの。メニューを開くキーを含む) です。</summary>
 	private List<LauncherHotkeyGroup> _launcherHotkeyGroups = [];
+	/// <summary>ランチャーのホットキーで別プロセス起動したスクリプトです (パスごと。同じスクリプトを多重起動しないため)。</summary>
+	private readonly Dictionary<string, System.Diagnostics.Process> _launcherProcesses = new( StringComparer.OrdinalIgnoreCase );
 	/// <summary>対象アプリが前面にあるときだけ RegisterHotKey しているランチャーのホットキー ID です。</summary>
 	private readonly HashSet<int> _conditionalHotkeyIds = [];
 	/// <summary>前面の窓の切り替わり (とタイトル変更) を受けるフックです。</summary>
@@ -276,18 +278,27 @@ public partial class MainForm : Form {
 	}
 
 	/// <summary>ランチャーの枠のスクリプトを実行します。</summary>
-	private async Task RunLauncherAsync( LauncherSlot slot ) {
+	/// <param name="fromHotkey">ホットキーからの起動かどうかです (true なら、同じスクリプトが別プロセスで動いている間は起動しません)。</param>
+	private async Task RunLauncherAsync( LauncherSlot slot, bool fromHotkey = false ) {
 		var path = slot.Path;
 		if( !File.Exists( path ) ) {
 			MessageBox.Show( this, $"スクリプトが見つかりません。\n{path}", AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning );
 			return;
 		}
 		if( slot.SeparateProcess ) {
+			var key = Path.GetFullPath( path );
+			if( fromHotkey && _launcherProcesses.TryGetValue( key, out var running ) ) {
+				if( !running.HasExited ) return; // ホットキーでは多重起動しない
+				running.Dispose();
+				_launcherProcesses.Remove( key );
+			}
 			// CsWSC.exe スクリプト で起動する (メイン画面の再生とは独立して動き、終わったら終了する)
 			try {
-				System.Diagnostics.Process.Start( new System.Diagnostics.ProcessStartInfo( Environment.ProcessPath!, [path] ) {
+				var process = System.Diagnostics.Process.Start( new System.Diagnostics.ProcessStartInfo( Environment.ProcessPath!, [path] ) {
 					WorkingDirectory = Path.GetDirectoryName( path )!,
 				} );
+				if( fromHotkey && process != null ) _launcherProcesses[key] = process;
+				else process?.Dispose();
 			} catch( Exception ex ) {
 				MessageBox.Show( this, ex.Message, AppName, MessageBoxButtons.OK, MessageBoxIcon.Error );
 			}
@@ -761,7 +772,7 @@ public partial class MainForm : Form {
 			case >= HotkeyLauncherBase when id - HotkeyLauncherBase < _launcherHotkeyGroups.Count:
 				// 前面のアプリに合うものを選ぶ (フック方式はキーが前面にも届くので、合うものが無ければ何もしない)
 				switch( _launcherHotkeyGroups[id - HotkeyLauncherBase].Pick( ForegroundInfo.Of( GetForegroundWindow() ) ) ) {
-					case { Script: { } slot }: _ = RunLauncherAsync( slot ); break;
+					case { Script: { } slot }: _ = RunLauncherAsync( slot, fromHotkey: true ); break;
 					case { Menu: { } menu }: ShowLauncherPopup( menu ); break;
 				}
 				break;
