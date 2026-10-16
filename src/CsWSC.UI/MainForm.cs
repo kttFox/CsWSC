@@ -413,8 +413,7 @@ public partial class MainForm : Form {
 		SetStopLayout( running, $"停止 ({_settings.StopHotkey})" );
 		UpdateButtons();
 		AutoTray( running );
-		// 実行中は停止ボタンと Print 窓を最前面に出しておく (操作中の窓からフォーカスは奪わない)
-		_printForm.Running = running;
+		// UWSC と同様、実行中は停止ボタンを最前面に出しておく (操作中の窓からフォーカスは奪わない)
 		SetTopMostNoActivate( running || _settings.TopMost );
 	}
 
