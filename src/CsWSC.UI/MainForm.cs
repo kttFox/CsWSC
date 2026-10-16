@@ -288,15 +288,27 @@ public partial class MainForm : Form {
 		if( slot.SeparateProcess ) {
 			var key = Path.GetFullPath( path );
 			if( fromHotkey && _launcherProcesses.TryGetValue( key, out var running ) ) {
-				if( !running.HasExited ) return; // ホットキーでは多重起動しない
+				if( !running.HasExited ) { // ホットキーでは多重起動しない
+					if( _settings.HotkeyLaunchNotice ) LaunchNotice.Skipped( path, "実行中" );
+					return;
+				}
 				running.Dispose();
 				_launcherProcesses.Remove( key );
 			}
+			if( fromHotkey ) LaunchTrace.Begin( "ホットキー受信" );
+			// 遅いマシンでは起動に時間がかかるので、先に表示して押したのが効いたと分かるようにする
+			if( fromHotkey && _settings.HotkeyLaunchNotice ) {
+				LaunchNotice.Started( path );
+				LaunchTrace.Mark( "通知表示" );
+			}
 			// CsWSC.exe スクリプト で起動する (メイン画面の再生とは独立して動き、終わったら終了する)
 			try {
-				var process = System.Diagnostics.Process.Start( new System.Diagnostics.ProcessStartInfo( Environment.ProcessPath!, [path] ) {
+				var psi = new System.Diagnostics.ProcessStartInfo( Environment.ProcessPath!, [path] ) {
 					WorkingDirectory = Path.GetDirectoryName( path )!,
-				} );
+				};
+				LaunchTrace.Mark( "起動要求" );
+				if( LaunchTrace.Take() is { } trace ) psi.Environment[LaunchTrace.EnvironmentVariable] = trace;
+				var process = System.Diagnostics.Process.Start( psi );
 				if( fromHotkey && process != null ) _launcherProcesses[key] = process;
 				else process?.Dispose();
 			} catch( Exception ex ) {
@@ -304,8 +316,17 @@ public partial class MainForm : Form {
 			}
 			return;
 		}
-		if( _cts != null || _recorder.IsRecording ) return;
-		SetScript( path );
+		if( _cts != null || _recorder.IsRecording ) {
+			if( fromHotkey && _settings.HotkeyLaunchNotice ) LaunchNotice.Skipped( path, _recorder.IsRecording ? "記録中" : "再生中" );
+			return;
+		}
+		if( fromHotkey ) LaunchTrace.Begin( "ホットキー受信" );
+		if( fromHotkey && _settings.HotkeyLaunchNotice ) {
+			LaunchNotice.Started( path );
+			LaunchTrace.Mark( "通知表示" );
+		}
+		SetScript( path, playNow: true );
+		LaunchTrace.Mark( "スクリプト設定" );
 		await PlayAsync();
 	}
 
@@ -329,7 +350,9 @@ public partial class MainForm : Form {
 	// ---- スクリプト ----
 
 	/// <summary>再生対象のスクリプトを設定します (エディタで保存したときにも呼ばれる)。</summary>
-	public void SetScript( string? path ) {
+	/// <param name="playNow">すぐ再生するかどうかです。true なら再生を早く始められるよう、事前コンパイルをせず、設定の保存を後回しにします
+	/// (事前コンパイルは待機中の子プロセスを使ってしまい、再生が起動直後の子プロセスになって遅くなるため)。</param>
+	public void SetScript( string? path, bool playNow = false ) {
 		if( path != null && !File.Exists( path ) ) path = null;
 		if( path != null && ScriptLibraryResolver.IsLibrary( path ) ) {
 			MessageBox.Show( this, ScriptRunner.LibraryNotRunnableMessage( path ), AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning );
@@ -339,9 +362,11 @@ public partial class MainForm : Form {
 		if( path != null ) {
 			_recordedSource = null;
 			_settings.AddRecent( path );
-			_settings.Save();
+			// 後回しにすると、再生の要求を子プロセスに送ってから (PlayAsync が最初に待つところで) UI スレッドで保存される
+			if( playNow ) BeginInvoke( _settings.Save );
+			else _settings.Save();
 			// 再生ボタンを押す前にコンパイルしてキャッシュを作っておく (再生中は邪魔しないよう行わない)
-			if( _cts == null ) {
+			if( !playNow && _cts == null ) {
 				try { _ = ScriptProcess.PrecompileAsync( File.ReadAllText( path ), path ); } catch( Exception ) { }
 			}
 		}
@@ -761,7 +786,12 @@ public partial class MainForm : Form {
 				else _cts?.Cancel();
 				break;
 			case HotkeyPlay:
-				if( _cts == null && !_recorder.IsRecording ) _ = PlayAsync();
+				if( _cts != null || _recorder.IsRecording ) {
+					if( _settings.HotkeyLaunchNotice ) LaunchNotice.Skipped( _scriptPath, _recorder.IsRecording ? "記録中" : "再生中" );
+				} else if( _scriptPath != null || _recordedSource != null ) {
+					if( _settings.HotkeyLaunchNotice ) LaunchNotice.Started( _recordedSource != null ? null : _scriptPath );
+					_ = PlayAsync();
+				}
 				break;
 			case HotkeyRecord:
 				if( _cts == null ) RecordButton_Click( this, EventArgs.Empty );

@@ -50,6 +50,7 @@ partial class SettingsForm {
 		this.trayOnStartCheckBox = new CheckBox();
 		this.trayOnCloseCheckBox = new CheckBox();
 		this.trayWhileRunningCheckBox = new CheckBox();
+		this.launchNoticeCheckBox = new CheckBox();
 		this.recordGroupBox.SuspendLayout();
 		this.hotkeyGroupBox.SuspendLayout();
 		this.trayGroupBox.SuspendLayout();
@@ -147,9 +148,10 @@ partial class SettingsForm {
 		this.hotkeyGroupBox.Controls.Add( this.trayLabel );
 		this.hotkeyGroupBox.Controls.Add( this.trayHotkeyTextBox );
 		this.hotkeyGroupBox.Controls.Add( this.trayHotkeyButton );
+		this.hotkeyGroupBox.Controls.Add( this.launchNoticeCheckBox );
 		this.hotkeyGroupBox.Location = new Point( 8, 198 );
 		this.hotkeyGroupBox.Name = "hotkeyGroupBox";
-		this.hotkeyGroupBox.Size = new Size( 294, 156 );
+		this.hotkeyGroupBox.Size = new Size( 294, 180 );
 		this.hotkeyGroupBox.TabIndex = 1;
 		this.hotkeyGroupBox.TabStop = false;
 		this.hotkeyGroupBox.Text = "ホットキー(&H)";
@@ -261,10 +263,20 @@ partial class SettingsForm {
 		this.trayHotkeyButton.TabIndex = 16;
 		this.trayHotkeyButton.Text = "変更...";
 		this.trayHotkeyButton.UseVisualStyleBackColor = true;
+		//
+		// launchNoticeCheckBox
+		//
+		this.launchNoticeCheckBox.AutoSize = true;
+		this.launchNoticeCheckBox.Location = new Point( 12, 154 );
+		this.launchNoticeCheckBox.Name = "launchNoticeCheckBox";
+		this.launchNoticeCheckBox.Size = new Size( 220, 19 );
+		this.launchNoticeCheckBox.TabIndex = 17;
+		this.launchNoticeCheckBox.Text = "ホットキーで実行したらスクリプト名を表示";
+		this.launchNoticeCheckBox.UseVisualStyleBackColor = true;
 		// 
 		// okButton
 		// 
-		this.okButton.Location = new Point( 108, 470 );
+		this.okButton.Location = new Point( 108, 494 );
 		this.okButton.Name = "okButton";
 		this.okButton.Size = new Size( 92, 28 );
 		this.okButton.TabIndex = 3;
@@ -275,7 +287,7 @@ partial class SettingsForm {
 		// cancelButton
 		// 
 		this.cancelButton.DialogResult = DialogResult.Cancel;
-		this.cancelButton.Location = new Point( 206, 470 );
+		this.cancelButton.Location = new Point( 206, 494 );
 		this.cancelButton.Name = "cancelButton";
 		this.cancelButton.Size = new Size( 92, 28 );
 		this.cancelButton.TabIndex = 4;
@@ -287,7 +299,7 @@ partial class SettingsForm {
 		this.trayGroupBox.Controls.Add( this.trayOnStartCheckBox );
 		this.trayGroupBox.Controls.Add( this.trayOnCloseCheckBox );
 		this.trayGroupBox.Controls.Add( this.trayWhileRunningCheckBox );
-		this.trayGroupBox.Location = new Point( 8, 360 );
+		this.trayGroupBox.Location = new Point( 8, 384 );
 		this.trayGroupBox.Name = "trayGroupBox";
 		this.trayGroupBox.Size = new Size( 294, 98 );
 		this.trayGroupBox.TabIndex = 2;
@@ -330,7 +342,7 @@ partial class SettingsForm {
 		this.AutoScaleDimensions = new SizeF( 7F, 15F );
 		this.AutoScaleMode = AutoScaleMode.Font;
 		this.CancelButton = this.cancelButton;
-		this.ClientSize = new Size( 310, 508 );
+		this.ClientSize = new Size( 310, 532 );
 		this.Controls.Add( this.recordGroupBox );
 		this.Controls.Add( this.hotkeyGroupBox );
 		this.Controls.Add( this.trayGroupBox );
@@ -382,4 +394,5 @@ partial class SettingsForm {
 	private CheckBox trayOnStartCheckBox;
 	private CheckBox trayOnCloseCheckBox;
 	private CheckBox trayWhileRunningCheckBox;
+	private CheckBox launchNoticeCheckBox;
 }
