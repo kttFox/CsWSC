@@ -284,15 +284,20 @@ internal static class ScriptProcess {
 			Environment.Exit( 1 );
 		} ) { IsBackground = true, Name = "CsWSC stop" }.Start();
 
+		PrintLog.Start( path );
 		try {
 			ScriptRunner.Run( source, text => { PrintLog.Write( path, text ); Send( "print\t" + Escape( text ) ); }, cts.Token, new LogWindowProxy( Send ),
 				path, ScriptRunner.DefaultCacheDirectory, compiling => Send( compiling ? "compiling\t1" : "compiling\t0" ) );
+			PrintLog.End( path, "正常終了" );
 			Send( "ok" );
 		} catch( OperationCanceledException ) {
+			PrintLog.End( path, "停止" );
 			Send( "stopped" );
 		} catch( ScriptException ex ) {
+			PrintLog.End( path, $"エラー {ex.Line.ToString( CultureInfo.InvariantCulture )} 行目: {ex.Message}" );
 			Send( $"error\t{ex.Line.ToString( CultureInfo.InvariantCulture )}\t{Escape( ex.Message )}" );
 		} catch( Exception ex ) {
+			PrintLog.End( path, "エラー: " + ex.Message );
 			Send( "error\t0\t" + Escape( ex.Message ) );
 		}
 		return 0;

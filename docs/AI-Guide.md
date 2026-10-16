@@ -158,6 +158,7 @@ string  GetClipboard()
 void    SetClipboard(string text)
 CancellationToken Cancellation              // 長い計算の途中で停止を確認する
 string  ScriptName                           // 実行中のスクリプトのファイル名
+int     ProcessId                            // 実行中のプロセス ID (同時実行の区別、ログと同じ値)
 ```
 
 ### 列挙型

@@ -133,6 +133,19 @@ string ScriptName
 Print(ScriptName); // main.csws
 ```
 
+### ProcessId
+
+```csharp
+int ProcessId
+```
+
+スクリプトを実行しているプロセスの ID です。  
+スクリプトは 1 回の実行ごとに別プロセスで動くので、同時に実行しているスクリプトを区別できます。ログの `[スクリプト名:プロセス ID]` と同じ値です。
+
+```csharp
+Print(ProcessId); // 12345
+```
+
 ### スクリプトの終了
 
 途中で終了するには `return;` と書きます。

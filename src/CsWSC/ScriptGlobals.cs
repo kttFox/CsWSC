@@ -23,6 +23,17 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 	/// </example>
 	public string ScriptName { get; } = scriptPath is null ? "" : System.IO.Path.GetFileName( scriptPath );
 
+	/// <summary>
+	/// スクリプトを実行しているプロセスの ID です。
+	/// </summary>
+	/// <remarks>スクリプトは 1 回の実行ごとに別プロセスで動くので、同時に実行しているスクリプトを区別できます。ログの [スクリプト名:プロセス ID] と同じ値です。</remarks>
+	/// <example>
+	/// <code>
+	/// Print(ProcessId); // 12345
+	/// </code>
+	/// </example>
+	public int ProcessId => Environment.ProcessId;
+
 
 	// 停止要求に加え、メインスクリプト終了時にも THREAD を止めるためのトークン
 	private readonly CancellationTokenSource _lifetime = CancellationTokenSource.CreateLinkedTokenSource( cancellation );
