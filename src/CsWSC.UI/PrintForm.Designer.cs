@@ -36,7 +36,7 @@ partial class PrintForm {
 		this.outputTextBox.Multiline = true;
 		this.outputTextBox.Name = "outputTextBox";
 		this.outputTextBox.ReadOnly = true;
-		this.outputTextBox.ScrollBars = ScrollBars.Both;
+		this.outputTextBox.ScrollBars = ScrollBars.Vertical;
 		this.outputTextBox.Size = new Size( 434, 261 );
 		this.outputTextBox.TabIndex = 0;
 		this.outputTextBox.WordWrap = false;

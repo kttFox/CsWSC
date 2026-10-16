@@ -40,17 +40,53 @@ public partial class PrintForm : Form, ILogWindow {
 		if( Visible && ActiveForm != null ) SetZOrder( HWND_TOPMOST );
 	}
 
-	public void Clear() => OnUi( outputTextBox.Clear );
+	public void Clear() => OnUi( ClearText );
 
 	/// <summary>スクリプト開始時の初期化です。内容を消し、LogPrint の非表示指定も解除します。</summary>
 	public void Reset() {
 		_suppressed = false;
-		outputTextBox.Clear();
+		ClearText();
 	}
 
 	public void AppendLine( string text ) {
 		if( !Visible && !_suppressed ) Show();
+		foreach( var line in text.Split( '\n' ) ) {
+			_maxLineWidth = Math.Max( _maxLineWidth, MeasureLine( line.TrimEnd( '\r' ) ) );
+		}
 		outputTextBox.AppendText( text + Environment.NewLine );
+		UpdateHorizontalScrollBar();
+	}
+
+	// これまでに出力した行のうち最も長い行の幅 (ピクセル)
+	private int _maxLineWidth;
+
+	private void ClearText() {
+		outputTextBox.Clear();
+		_maxLineWidth = 0;
+		UpdateHorizontalScrollBar();
+	}
+
+	private int MeasureLine( string line ) {
+		const TextFormatFlags flags = TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.ExpandTabs | TextFormatFlags.NoPadding;
+		return line.Length == 0 ? 0 : TextRenderer.MeasureText( line, outputTextBox.Font, Size.Empty, flags ).Width;
+	}
+
+	protected override void OnResize( EventArgs e ) {
+		base.OnResize( e );
+		if( outputTextBox != null ) UpdateHorizontalScrollBar();
+	}
+
+	// TextBox は横スクロールバーを自動で出し入れしないので、最長行が収まらないときだけ表示する
+	// (縦は常に表示しておくことで、横の有無でクライアント幅が変わらず判定が振動しない)
+	private void UpdateHorizontalScrollBar() {
+		const int margin = 8; // エディットコントロールの左右余白とキャレットの分
+		var scrollBars = _maxLineWidth + margin > outputTextBox.ClientSize.Width ? ScrollBars.Both : ScrollBars.Vertical;
+		if( outputTextBox.ScrollBars == scrollBars ) return;
+		// ScrollBars を変えるとハンドルが作り直されスクロール位置が先頭に戻るので、キャレット位置へ戻す
+		int caret = outputTextBox.SelectionStart;
+		outputTextBox.ScrollBars = scrollBars;
+		outputTextBox.SelectionStart = caret;
+		outputTextBox.ScrollToCaret();
 	}
 
 	void ILogWindow.SetVisible( bool visible ) => OnUi( () => {
