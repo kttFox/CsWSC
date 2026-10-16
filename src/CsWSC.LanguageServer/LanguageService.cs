@@ -127,6 +127,8 @@ internal sealed partial class LanguageService( ScriptWorkspace workspace ) {
 		var display = symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } ctor
 			? $"new {ctor.ContainingType.ToDisplayString( Format )}({string.Join( ", ", ctor.Parameters.Select( p => p.ToDisplayString( Format ) ) )})"
 			: symbol.ToDisplayString( Format );
+		if( symbol is IFieldSymbol { IsConst: true } or ILocalSymbol { IsConst: true } ) display = "const " + display;
+		else if( symbol is IFieldSymbol { IsReadOnly: true } ) display = "readonly " + display;
 		return new HoverResult( display, Summary( symbol ), token.Span.Start, token.Span.End );
 	}
 
@@ -421,7 +423,8 @@ internal sealed partial class LanguageService( ScriptWorkspace workspace ) {
 	// ---- ヘルパー ----
 
 	private static readonly SymbolDisplayFormat Format = SymbolDisplayFormat.MinimallyQualifiedFormat
-		.AddMemberOptions( SymbolDisplayMemberOptions.IncludeParameters | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeContainingType )
+		.AddMemberOptions( SymbolDisplayMemberOptions.IncludeParameters | SymbolDisplayMemberOptions.IncludeType | SymbolDisplayMemberOptions.IncludeContainingType | SymbolDisplayMemberOptions.IncludeConstantValue )
+		.AddLocalOptions( SymbolDisplayLocalOptions.IncludeConstantValue )
 		.AddParameterOptions( SymbolDisplayParameterOptions.IncludeDefaultValue | SymbolDisplayParameterOptions.IncludeName | SymbolDisplayParameterOptions.IncludeParamsRefOut )
 		.AddMiscellaneousOptions( SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier );
 
