@@ -36,7 +36,13 @@ public sealed partial class Window : ControlBase {
 			ShowWindow( Handle, SW_RESTORE );
 		}
 
-		SetForegroundWindow( Handle );
+		// 別のアプリが前面にあると SetForegroundWindow は拒否される (スクリプトは別プロセスで動くので起こりやすい)。
+		// 直前にキー入力があると許可されるので、拒否されたら Alt を押して離してからやり直す (InputBoxForm と同じ方法)
+		if( !SetForegroundWindow( Handle ) || GetForegroundWindow() != Handle ) {
+			const ushort VK_MENU = 0x12;
+			NativeMethods.Send( NativeMethods.Key( VK_MENU, 0, NativeMethods.KEYEVENTF_KEYDOWN ), NativeMethods.Key( VK_MENU, 0, NativeMethods.KEYEVENTF_KEYUP ) );
+			SetForegroundWindow( Handle );
+		}
 		return this;
 	}
 
