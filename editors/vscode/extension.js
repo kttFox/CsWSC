@@ -267,6 +267,26 @@ const semanticTokensProvider = {
   },
 };
 
+// ---- ドキュメントコメント (/// と入力したら <summary> などの雛形に展開) ----
+
+async function expandDocComment(e) {
+  if (!isAnalyzed(e.document) || e.contentChanges.length !== 1 || e.contentChanges[0].text !== '/') return;
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || editor.document !== e.document) return;
+  const doc = e.document;
+  const pos = e.contentChanges[0].range.start.translate(0, 1);
+  const line = doc.lineAt(pos.line);
+  if (!/^\s*\/\/\/\s*$/.test(line.text) || !line.text.slice(0, pos.character).endsWith('///')) return;
+  const version = doc.version;
+  const tags = server && await server.request('docComment', params(doc, pos));
+  if (!tags || doc.version !== version || vscode.window.activeTextEditor !== editor) return;
+  // スニペットは 2 行目以降を 1 行目のインデントに合わせてくれる
+  const escape = s => s.replace(/[$}\\]/g, '\\$&');
+  const snippet = new vscode.SnippetString(
+    [' <summary>', '\n/// $0', '\n/// </summary>', ...tags.map(t => `\n/// ${escape(t)}`)].join(''));
+  editor.insertSnippet(snippet, new vscode.Range(pos, line.range.end));
+}
+
 // ---- 診断 (入力が止まってから更新) ----
 
 const timers = new Map();
@@ -593,6 +613,7 @@ function activate(context) {
     vscode.workspace.onDidChangeTextDocument(e => {
       scheduleDiagnostics(e.document);
       onScriptEdited(e);
+      expandDocComment(e);
     }),
     // ライブラリを保存したら、参照しているスクリプトの診断を更新する (サーバーが保存を検知して読み直す)
     vscode.workspace.onDidSaveTextDocument(doc => {

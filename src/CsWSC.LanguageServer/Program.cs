@@ -54,6 +54,7 @@ while( await input.ReadLineAsync() is { } line ) {
 			"semanticTokens" => await service.SemanticTokensAsync( uri, text ),
 			"format" => await service.FormatAsync( uri, text, offset, (int?)req["end"] ?? -1,
 				(bool?)req["useTabs"] ?? true, (int?)req["tabSize"] ?? 4 ),
+			"docComment" => await service.DocCommentSnippetAsync( uri, text, offset ),
 			"close" => Close( uri ),
 			"shutdown" => null,
 			var m => throw new InvalidOperationException( $"unknown method: {m}" ),
