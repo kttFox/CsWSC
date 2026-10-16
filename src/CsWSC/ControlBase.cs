@@ -410,6 +410,16 @@ public abstract partial class ControlBase {
 	public Point? CheckColor( Color color, Rectangle? area = null, int tolerance = 0 ) =>
 		CheckColors( color, area, tolerance, 1 ) is [var p, ..] ? p : null;
 
+	/// <summary>クライアント領域内の指定位置の色が指定の色と一致するかを調べます。</summary>
+	/// <param name="color">比べる色です。アルファ値は無視します。</param>
+	/// <param name="point">調べる位置です (クライアント領域の左上が基準)。</param>
+	/// <param name="tolerance">色の許容差です。RGB 各成分 (0〜255) の差がこの値以下なら一致とみなします。0 で完全一致です。</param>
+	/// <returns>一致すれば true です。</returns>
+	/// <exception cref="InvalidOperationException">ウィンドウ・コントロールが閉じられています。</exception>
+	/// <exception cref="ArgumentOutOfRangeException"><paramref name="tolerance"/> が 0〜255 の範囲外です。</exception>
+	public bool CheckColor( Color color, Point point, int tolerance = 0 ) =>
+		CheckColors( color, new Rectangle( point, new Size( 1, 1 ) ), tolerance, 1 ).Length > 0;
+
 	/// <summary>クライアント領域内で指定の色のピクセルを全て探し、位置を上から順 (同じ行は左から順) に返します。</summary>
 	/// <param name="color">探す色です。アルファ値は無視します。</param>
 	/// <param name="area">探す範囲です (クライアント領域の左上が基準)。省略するとクライアント領域全体です。</param>

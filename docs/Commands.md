@@ -906,6 +906,7 @@ foreach (var p in CheckImages(@"C:\img\checkbox.png", tolerance: 10)) Mouse(Mous
 ```csharp
 Point?  CheckColor(Color color, [Rectangle? area], [int tolerance = 0])						// 最初に見つかった位置。無ければ null
 Point[] CheckColors(Color color, [Rectangle? area], [int tolerance = 0], [int max])			// 全て。無ければ空の配列
+bool    CheckColor(Color color, Point point, [int tolerance = 0])							// 指定位置の色が一致するか
 (Color Color, Point Point)?  CheckColor(Color[] colors, [Rectangle? area], [int tolerance = 0])	// いずれかの色。一致した色と位置
 (Color Color, Point Point)[] CheckColors(Color[] colors, [Rectangle? area], [int tolerance = 0], [int max])
 Point?  window.CheckColor(…) / Point[] window.CheckColors(…)	// ウィンドウのクライアント領域内を探し、クライアント領域相対で返す
@@ -922,6 +923,7 @@ Point?  capture.CheckColor(…) / Point[] capture.CheckColors(…)	// Capture �
   省略すると全件です。
 - 複数色版は、どれか 1 色に一致するピクセルを探し、一致した色 (`colors` の要素。実際のピクセルの色ではない) と位置を返します。  
   1 つのピクセルが複数の色に一致するときは、`colors` の先に並ぶ色を返します。
+- `Point` 版は、その位置の 1 ピクセルの色が `color` と一致するか (`tolerance` 以内か) を `bool` で返します。
 - 呼ぶたびに画面をキャプチャします。  
   同じ画面で何度も調べるときは `Capture` を使ってください。
 - 画像ファイルの中を探すときは `Capture(画像ファイルのパス).CheckColor(…)` を使います。
@@ -930,6 +932,7 @@ Point?  capture.CheckColor(…) / Point[] capture.CheckColors(…)	// Capture �
 if (CheckColor(Color.Red, new Rectangle(0, 0, 400, 300), 10) is Point p) Mouse(MouseButton.Left, KeyAction.Click, p);
 if (CheckColor([Color.Red, Color.Lime], tolerance: 10) is { } f) Print($"{f.Color} が {f.Point} にある");
 foreach (var (color, point) in CheckColors([Color.Red, Color.Lime])) Print($"{color} {point}");
+if (CheckColor(Color.Red, new Point(100, 200), 10)) Print("赤い");
 ```
 
 ### ShowImageArea
@@ -974,6 +977,7 @@ Capture Capture(string imagePath)			// 画像ファイルから作る。画像�
 Point?  capture.CheckImage(…)  / Point[] capture.CheckImages(…)							// 引数は CheckImage / CheckImages と同じ
 Point?  capture.CheckColor(Color color, [Rectangle? area], [int tolerance = 0])				// 指定の色を探す。最初に見つかった位置
 Point[] capture.CheckColors(Color color, [Rectangle? area], [int tolerance = 0], [int max])	// 指定の色のピクセルを全て
+bool    capture.CheckColor(Color color, Point point, [int tolerance = 0])						// 指定位置の色が一致するか
 (Color, Point)? capture.CheckColor(Color[] colors, …)  
 (Color, Point)[] capture.CheckColors(Color[] colors, …)
 Color   capture.PeekColor(Point point)

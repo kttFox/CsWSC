@@ -49,6 +49,16 @@ public class CaptureTests {
 	}
 
 	[Fact]
+	public void CheckColor_AtPoint() {
+		using var bmp = Sample();
+		var s = Capture.FromBitmap( bmp );
+		Assert.False( s.CheckColor( Color.Red, new Point( 2, 1 ) ) );
+		Assert.True( s.CheckColor( Color.Red, new Point( 2, 1 ), 5 ) );
+		Assert.False( s.CheckColor( Color.Red, new Point( 0, 0 ), 5 ) );
+		Assert.Throws<ArgumentOutOfRangeException>( () => s.CheckColor( Color.Red, new Point( 2, 1 ), 256 ) );
+	}
+
+	[Fact]
 	public void CheckColor_WideImage_FindsAcrossVectorLanes() {
 		// SIMD でまとめて比べる部分と、行末の 1 ピクセルずつ比べる部分の両方に置く
 		using var bmp = new Bitmap( 67, 4 );

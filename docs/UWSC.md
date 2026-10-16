@@ -357,6 +357,7 @@ CsWSC は UI Automation で操作するので、Win32 以外 (WPF・UWP・ブラ
 | `CHKIMG` (ウィンドウ内) | `w.CheckImage(…)` | クライアント領域相対で返す |
 | `CHKIMG` の全件 (`ALL_IMG_X[]` / `ALL_IMG_Y[]`) | `CheckImages(…)` | 見つかった全ての左上を `Point[]` で返す |
 | — | `CheckColor(色, 範囲, 許容誤差)` / `CheckColors(…)` | 指定の色のピクセルを探す |
+| — | `CheckColor(色, 位置, 許容誤差)` | 指定位置の色が一致するかを bool で返す |
 | — | `Capture([範囲])` / `Capture(画像ファイル)` | 一度取り込んだ画面 (または画像) の中で画像や色を何度も調べる |
 | `SAVEIMG(ファイル, id)` | `w.SaveImage(ファイル)` | |
 | `SAVEIMG(ファイル, 0, x, y, 幅, 高さ)` | `SaveImage(ファイル, new Rectangle(x, y, 幅, 高さ))` | 形式は拡張子で決まる |

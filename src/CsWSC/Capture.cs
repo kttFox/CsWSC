@@ -104,6 +104,15 @@ public sealed partial class Capture {
 	public Point? CheckColor( Color color, Rectangle? area = null, int tolerance = 0 ) =>
 		FindColor( color, area, tolerance, 1 ) is [var p, ..] ? p : null;
 
+	/// <summary>指定位置の色が指定の色と一致するかを調べます。</summary>
+	/// <param name="color">比べる色です。アルファ値は無視します。</param>
+	/// <param name="point">調べる位置です (作ったときの座標系)。</param>
+	/// <param name="tolerance">色の許容差です。RGB 各成分 (0〜255) の差がこの値以下なら一致とみなします。0 で完全一致です。</param>
+	/// <returns>一致すれば true です。</returns>
+	/// <exception cref="ArgumentOutOfRangeException"><paramref name="tolerance"/> が 0〜255 の範囲外です。</exception>
+	public bool CheckColor( Color color, Point point, int tolerance = 0 ) =>
+		FindColor( color, new Rectangle( point, new Size( 1, 1 ) ), tolerance, 1 ).Length > 0;
+
 	/// <summary>指定の色のピクセルを全て探し、位置を上から順 (同じ行は左から順) に返します。</summary>
 	/// <param name="color">探す色です。アルファ値は無視します。</param>
 	/// <param name="area">探す範囲です (作ったときの座標系)。省略するとキャプチャした範囲全体です。</param>

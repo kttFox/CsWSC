@@ -686,6 +686,22 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 		CheckColors( color, area, tolerance, 1 ) is [var p, ..] ? p : null;
 
 	/// <summary>
+	/// 画面上の指定位置の色が指定の色と一致するかを調べます。
+	/// </summary>
+	/// <param name="color">比べる色です。アルファ値は無視します。</param>
+	/// <param name="point">調べる位置です。</param>
+	/// <param name="tolerance">色の許容差です。RGB 各成分 (0〜255) の差がこの値以下なら一致とみなします。0 で完全一致です。</param>
+	/// <returns>一致すれば true です。</returns>
+	/// <exception cref="ArgumentOutOfRangeException"><paramref name="tolerance"/> が 0〜255 の範囲外です。</exception>
+	/// <example>
+	/// <code>
+	/// if (CheckColor(Color.Red, new Point(100, 200), 10)) Print("赤い");
+	/// </code>
+	/// </example>
+	public bool CheckColor( Color color, Point point, int tolerance = 0 ) =>
+		CheckColors( color, new Rectangle( point, new Size( 1, 1 ) ), tolerance, 1 ).Length > 0;
+
+	/// <summary>
 	/// 画面上で指定の色のピクセルを全て探し、位置を上から順 (同じ行は左から順) に返します。
 	/// </summary>
 	/// <param name="color">探す色です。アルファ値は無視します。</param>

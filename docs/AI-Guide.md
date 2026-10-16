@@ -139,9 +139,10 @@ Point[] CheckImages(string imagePath, TransColor transColor, ImageMatch match)  
 Point[] CheckImages(string imagePath, TransColor transColor, Rectangle area, ImageMatch match)   // 透過色を指定
 Point?  CheckImage(Capture capture, …) / Point[] CheckImages(Capture capture, …)   // 探す画像を Capture で渡す (Capture(path) や Capture(rect) で作る)。capture 以降は上と同じ
 Point?  CheckColor(Color color, [Rectangle? area], [int tolerance = 0])   // 指定の色を探す。CheckColors で全件。w. 版もある
+bool    CheckColor(Color color, Point point, [int tolerance = 0])   // 指定位置の色が一致するか。w. 版・c. 版もある
 (Color Color, Point Point)? CheckColor(Color[] colors, [Rectangle? area], [int tolerance = 0])   // いずれかの色。一致した色 (colors の要素) と位置。CheckColors で全件
 Capture Capture([Rectangle? area])   // 画面を一度だけ取り込む。w.Capture([area]) / Capture(string imagePath) もある
-//   c.CheckImage(…) / c.CheckImages(…) (引数は同じ) / c.CheckColor(Color または Color[], [area], [tolerance]) / c.CheckColors(…) / c.PeekColor(x, y) / c.Save(path) / c.ToBitmap()
+//   c.CheckImage(…) / c.CheckImages(…) (引数は同じ) / c.CheckColor(Color または Color[], [area], [tolerance]) / c.CheckColor(color, point, [tolerance]) / c.CheckColors(…) / c.PeekColor(x, y) / c.Save(path) / c.ToBitmap()
 //   座標は作ったときの座標系で受け取り・返す。複数の画像や色を同じ瞬間の画面で調べるときに使う
 void   ShowImageArea([bool enabled], [Color? color], [int thickness], [int durationMs]) // デバッグ用に範囲を枠で表示
 ```
