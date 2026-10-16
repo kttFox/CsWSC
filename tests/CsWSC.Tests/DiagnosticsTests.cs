@@ -47,6 +47,20 @@ public class DiagnosticsTests {
 	}
 
 	[Fact]
+	public async Task ReferenceCswsl_FromLoadedScript() {
+		// #load 先の #r で参照したライブラリの型が、エラーにならず使える
+		var directory = Path.Combine( Path.GetTempPath(), "CsWSC.Tests." + Guid.NewGuid().ToString( "N" ) );
+		Directory.CreateDirectory( Path.Combine( directory, "common" ) );
+		try {
+			File.WriteAllText( Path.Combine( directory, "common", "lib.cswsl" ), "public static class Lib { public static string Greet() => \"a\"; }" );
+			File.WriteAllText( Path.Combine( directory, "common", "共通.csws" ), "#r \"lib.cswsl\"\nstring Hello() => Lib.Greet();" );
+			var uri = new Uri( Path.Combine( directory, "main.csws" ) ).AbsoluteUri;
+			var r = await _service.DiagnoseAsync( uri, "#load \"common/共通.csws\"\nPrint(Hello());\nPrint(Lib.Greet());\n" );
+			Assert.DoesNotContain( r, d => d.Severity == "error" );
+		} finally { try { Directory.Delete( directory, true ); } catch( UnauthorizedAccessException ) { } catch( IOException ) { } }
+	}
+
+	[Fact]
 	public void ToFilePath_DecodesDriveColon() {
 		Assert.Equal( @"c:\Users\test\my script.csws", ScriptWorkspace.ToFilePath( "file:///c%3A/Users/test/my%20script.csws" ) );
 	}

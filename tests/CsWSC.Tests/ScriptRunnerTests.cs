@@ -223,6 +223,26 @@ public class ScriptRunnerTests {
 		} finally { try { Directory.Delete( directory, true ); } catch( UnauthorizedAccessException ) { } catch( IOException ) { } }
 	}
 
+	[Fact]
+	public void ReferenceCswsl_FromLoadedScript() {
+		// #load 先の #r は、#load 先のフォルダを基準に解決する
+		var directory = Path.Combine( Path.GetTempPath(), "CsWSC.Tests." + Guid.NewGuid().ToString( "N" ) );
+		var cache = Path.Combine( directory, "cache" );
+		var path = Path.Combine( directory, "main.csws" );
+		Directory.CreateDirectory( Path.Combine( directory, "common" ) );
+		try {
+			File.WriteAllText( Path.Combine( directory, "common", "lib.cswsl" ), "public static class Lib { public static string Greet() => \"a\"; }" );
+			File.WriteAllText( Path.Combine( directory, "common", "共通.csws" ), "#r \"lib.cswsl\"\nstring Hello() => Lib.Greet() + \"!\";" );
+			const string Code = "#load \"common/共通.csws\"\nPrint(Hello());\nPrint(Lib.Greet());";
+			for( var i = 0; i < 2; i++ ) // 1 回目はコンパイル、2 回目はキャッシュから
+			{
+				var output = new List<string>();
+				ScriptRunner.Run( Code, output.Add, CancellationToken.None, path: path, cacheDirectory: cache );
+				Assert.Equal( ["a!", "a"], output );
+			}
+		} finally { try { Directory.Delete( directory, true ); } catch( UnauthorizedAccessException ) { } catch( IOException ) { } }
+	}
+
 	[Theory]
 	[InlineData( "" )]
 	[InlineData( "// コメントだけ" )]
