@@ -186,6 +186,8 @@ publish/
 # Note: Comment the next line if you want to checkin your web deploy settings,
 # but database connection strings (with potential passwords) will be unencrypted
 *.pubxml
+# CsWSC の発行プロファイル (通常版と ReadyToRun 版) は共有する
+!src/CsWSC.UI/Properties/PublishProfiles/*.pubxml
 *.publishproj
 
 # Microsoft Azure Web App publish settings. Comment the next line if you want to
