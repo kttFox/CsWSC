@@ -281,6 +281,7 @@ public partial class MainForm : Form {
 	}
 
 	/// <summary>ランチャーの枠のスクリプトを実行します。</summary>
+	/// <param name="slot">実行する枠です。</param>
 	/// <param name="fromHotkey">ホットキーからの起動かどうかです (true なら、同じスクリプトが別プロセスで動いている間は起動しません)。</param>
 	private async Task RunLauncherAsync( LauncherSlot slot, bool fromHotkey = false ) {
 		var path = slot.Path;
@@ -353,6 +354,7 @@ public partial class MainForm : Form {
 	// ---- スクリプト ----
 
 	/// <summary>再生対象のスクリプトを設定します (エディタで保存したときにも呼ばれる)。</summary>
+	/// <param name="path">スクリプトのパスです。null なら対象を外します (存在しないパスも null とみなします)。</param>
 	/// <param name="playNow">すぐ再生するかどうかです。true なら再生を早く始められるよう、事前コンパイルをせず、設定の保存を後回しにします
 	/// (事前コンパイルは待機中の子プロセスを使ってしまい、再生が起動直後の子プロセスになって遅くなるため)。</param>
 	public void SetScript( string? path, bool playNow = false ) {

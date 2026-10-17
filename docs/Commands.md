@@ -127,7 +127,8 @@ string ScriptName
 ```
 
 実行中のスクリプトのファイル名 (フォルダーを除く) です。UWSC の `GET_UWSC_NAME` に相当します。  
-`InputBox` のタイトルにも表示されます。
+`InputBox` のタイトルにも表示されます。  
+未保存のときは空文字で、`InputBox` のタイトルは「CsWSC」だけになります。
 
 ```csharp
 Print(ScriptName); // main.csws
@@ -161,6 +162,11 @@ void Print(object? value)
 ```
 
 PRINT 窓に値を 1 行出力します。UWSC: `PRINT`
+
+- 出力は `%LocalAppData%\CsWSC\Logs\yyyy-MM-dd.log` にも追記されます。  
+  各行は `時刻 [スクリプト名:プロセス ID] 文字` の形式です。  
+  実行の開始と終了も `==== 開始 ====` / `==== 終了 (結果) ====` の行で記録します。
+- `--debug` で実行したとき (VS Code からのデバッグ実行) は書かれません。
 
 ```csharp
 Print("開始");
@@ -726,7 +732,7 @@ GetWindow("メモ帳")?.Activate().MoveWindow(0, 0, 800, 600).SendText("abc");
 
 | メソッド | 内容 | UWSC |
 |---|---|---|
-| `Activate()` | 前面に出してアクティブにする (最小化されていれば元に戻す) | `ACW(id)` |
+| `Activate()` | 前面に出してアクティブにする (最小化されていれば元に戻す)。前面化を拒否されたら Alt キーを送ってやり直す。それでも前面に出なくても例外にはならない | `ACW(id)` |
 | `MoveWindow(x, y, [w], [h])` / `MoveWindow(Point point, [w], [h])` | 移動する (画面座標。影を除いた見た目の範囲で指定)。サイズを省略すると現在のサイズのまま | `ACW(id, x, y, w, h)` |
 | `Resize(w, h)` | サイズだけ変更する | — |
 | `Minimize()` `Maximize()` `Restore()` | 最小化・最大化・元のサイズに戻す | `CTRLWIN(id, MIN / MAX / NORMAL)` |
@@ -931,9 +937,11 @@ Point?  capture.CheckColor(…) / Point[] capture.CheckColors(…)	// Capture �
 順序は上から順、同じ行は左から順です。
 
 - `tolerance`: RGB 各成分 (0〜255) の許容差です。  
-  0 で完全一致です。
+  0 で完全一致です。  
+  範囲外なら `ArgumentOutOfRangeException` になります。
 - `max`: `CheckColors` で返す件数の上限です。  
-  省略すると全件です。
+  省略すると全件です。  
+  1 未満なら `ArgumentOutOfRangeException` になります。
 - 複数色版は、どれか 1 色に一致するピクセルを探し、一致した色 (`colors` の要素。実際のピクセルの色ではない) と位置を返します。  
   1 つのピクセルが複数の色に一致するときは、`colors` の先に並ぶ色を返します。
 - `Point` 版は、その位置の 1 ピクセルの色が `color` と一致するか (`tolerance` 以内か) を `bool` で返します。
@@ -956,7 +964,7 @@ void ShowImageArea([bool enabled = true], [Color? color], [int? thickness], [int
 
 デバッグ用です。  
 `SaveImage` / `Capture` / `CheckImage` / `CheckImages` / `CheckColor` / `CheckColors` (Window 版も含む) / `PeekColor` の対象範囲に枠を表示します。  
-`CheckImage` / `CheckImages` では見つかった範囲にも枠を表示します。
+`CheckImage` / `CheckImages` では見つかった範囲に、`CheckColor` / `CheckColors` では見つかった位置にも枠を表示します。
 
 - `enabled`: `true` で表示します。  
   `false` で表示をやめ、枠を消します。
@@ -968,8 +976,8 @@ void ShowImageArea([bool enabled = true], [Color? color], [int? thickness], [int
 - `durationMs`: 枠を表示し続けるミリ秒数です。  
   省略すると前回の指定のままです (初回は 1000)。  
   次に対象の操作をしても前の枠は消さず、この時間が過ぎるまで新しい枠と一緒に表示します。  
-  0 以下なら次に対象の操作をするまで表示し続けます。
-- 枠は範囲の外側に描かれ、キャプチャの直前に隠すため `SaveImage` / `CheckImage` などの結果に影響しません。
+  0 以下なら次のキャプチャまで表示し続けます。
+- 枠は範囲の外側に描かれ、画面には表示されたままキャプチャには写らないため `SaveImage` / `CheckImage` などの結果に影響しません。
 - `PeekColor` では対象の 1 ピクセルを囲む枠になります。
 
 ```csharp
@@ -1036,7 +1044,7 @@ void Thread(Action action)
 - スレッド内でエラーが起きると、スクリプト全体が停止してエラーを表示します。
 - [`MouseOrigin`](#mouseorigin) の基準はスレッドごとに別です。スレッドは画面座標から始まります ([詳しく](MouseOrigin.md))。
 - 次の設定はスクリプト全体で 1 つです。どのスレッドで変えても、すべてのスレッドに効きます。
-  - [`ShowImageArea`](#showimagearea) の表示・色・表示時間
+  - [`ShowImageArea`](#showimagearea) の表示・色・太さ・表示時間
   - [`LockHard` / `LockHardEx`](#lockhard--lockhardex) のロック (最後に呼んだ指定が有効)
   - [吹き出し](#balloon)。`BalloonClear` は、ほかのスレッドが出した吹き出しも消します。
 - マウスカーソル・キーボード・アクティブウィンドウ・クリップボードは PC に 1 つしかありません。  

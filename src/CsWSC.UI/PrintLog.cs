@@ -9,7 +9,7 @@ namespace CsWSC.UI;
 /// 1 行は「時刻 [スクリプト名:プロセス ID] 文字」です。スクリプトは 1 回の実行ごとに別プロセスなので、
 /// 同時に実行しているスクリプトはプロセス ID で区別できます。
 /// 実行の開始と終了は「==== 開始 ====」「==== 終了 (結果) ====」の行で記録します。
-/// 書き込みに失敗しても実行は止めません。
+/// 書き込みに失敗しても実行は止めません。--debug で実行したときはログを書きません。
 /// </remarks>
 internal static class PrintLog {
 	/// <summary>ログを置くフォルダーです。</summary>
@@ -29,6 +29,9 @@ internal static class PrintLog {
 	/// <param name="text">書く内容です。</param>
 	public static void WriteLaunch( string? scriptPath, string text ) => Write( scriptPath, text, "launch.log" );
 
+	/// <summary>1 件追記します。</summary>
+	/// <param name="scriptPath">スクリプトのパスです。未保存なら null です。</param>
+	/// <param name="text">書く内容です。</param>
 	/// <param name="dailyFile">その日の分だけ残すファイルの名前です。null なら日付のファイルに追記します。</param>
 	private static void Write( string? scriptPath, string text, string? dailyFile ) {
 		var now = DateTime.Now;

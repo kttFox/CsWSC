@@ -14,6 +14,8 @@ internal sealed partial class LanguageService {
 	/// <summary>
 	/// このドキュメントにある定義ごとに、このドキュメント内の参照を返します。
 	/// </summary>
+	/// <param name="uri">ドキュメントの URI です。</param>
+	/// <param name="text">ドキュメントの内容です。</param>
 	/// <param name="kinds">
 	/// 対象にする定義の種類 (method・property・field・event・type) です。null ならすべてです。
 	/// method はメソッドとローカル関数、field はフィールド・定数・列挙型のメンバー、type はクラス・構造体・インターフェース・列挙型・デリゲートです。

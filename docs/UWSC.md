@@ -39,7 +39,7 @@ UWSC のスクリプトを CsWSC (C#) に書き換えるときの対応表と注
 | 文字列の結合 | `+` | `+` または `$"…{式}…"` (文字列補間) |
 | 戻り値の受け取り | 関数の戻り値 + `G_IMG_X` などのシステム変数 | 戻り値のみ (`Point?` などで返す) |
 | 型 | 実行時に決まる | コンパイル時に決まる (`var` で推論) |
-| 編集支援 | なし | VS Code 拡張で補完・エラー表示・定義へ移動・名前の変更・整形 |
+| 編集支援 | なし | VS Code 拡張で補完・エラー表示・定義へ移動・名前の変更・整形・参照数の表示 (CodeLens)・コードアクション |
 | デバッグ | `Print` で値を確認 | VS Code 拡張でブレークポイント・ステップ実行 (`F5`) |
 
 ---
@@ -138,7 +138,7 @@ void Hello(string name)
 | `CALL ファイル.uws` | `#load "ファイル.csws"` (相対パスはスクリプトのフォルダが基準) |
 | `DEF_DLL 関数名(引数):戻り値:DLL名` | `[DllImport]` を付けた `static extern` メソッド ([例](#win32-api-def_dll)) |
 | `OPTION EXPLICIT` | 不要 (C# は常に宣言が必要) |
-| `OPTION LOGPATH` | 対応なし。ログは `File.AppendAllText` などで自前で書く |
+| `OPTION LOGPATH` | 保存先は変えられない。`Print` の出力は `%LocalAppData%\CsWSC\Logs` の日付ごとのログに自動で残る |
 | その他の OPTION | 一部のみ設定画面 (記録方法・ホットキー・タスクトレイ) |
 | `//` コメント | `//` / `/* … */` |
 | `TEXTBLOCK` … `ENDTEXTBLOCK` | `"""` で囲む生文字列リテラル |
@@ -484,6 +484,7 @@ excel.Cells(1, 1).Value = "Hello";
 |---|---|
 | `GET_CUR_DIR` | `Environment.CurrentDirectory` |
 | `GET_UWSC_DIR` | `AppContext.BaseDirectory` |
+| `GET_UWSC_NAME` | `ScriptName` |
 | `GET_WIN_DIR` / `GET_SYS_DIR` | `Environment.GetFolderPath(Environment.SpecialFolder.Windows)` / `.System` |
 | `GET_APPDATA_DIR` | `Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)` |
 | `ENVIRON("PATH")` | `Environment.GetEnvironmentVariable("PATH")` |
@@ -618,8 +619,8 @@ Thread(() =>
 | `IE` 系関数 (`IEGETDATA` `IESETDATA` など) / `BROWSERCONTROL` | Selenium / Playwright などのライブラリを `#r` で参照する |
 | `XLOPEN` / `XLGETDATA` / `XLSETDATA` など | `CreateOleObject("Excel.Application")` で COM 操作する |
 | `READINI` / `WRITEINI` | `GetPrivateProfileString` などを `[DllImport]` する |
-| `SETHOTKEY` | ランチャー (設定メニュー) でスクリプトにグローバルホットキーを割り当てる (スクリプト内からは登録できない) |
+| `SETHOTKEY` | ランチャー (設定メニュー) でスクリプトにホットキーを割り当てる。グローバルホットキーのほか、キーボードフックでマウスのサイドボタンも割り当てられる (スクリプト内からは登録できない) |
 | `TASK` (タスクスケジューラ) | Windows のタスクスケジューラから CsWSC を起動する |
-| `OPTION` による各種設定 | 一部のみ設定画面 (記録方法・ホットキー・タスクトレイ)。`OPTION LOGPATH` などは対応なし |
+| `OPTION` による各種設定 | 一部のみ設定画面 (記録方法・ホットキー・タスクトレイ)。`OPTION LOGPATH` などは対応なし (`Print` の出力は日付ごとのログに自動で残る) |
 | `INPUT` のパスワード入力 | Windows Forms で独自のフォームを作る |
 | `MSGBOX` の位置指定 | Windows Forms で独自のフォームを作る |

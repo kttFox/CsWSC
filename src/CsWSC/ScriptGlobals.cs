@@ -591,7 +591,7 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 	private ImageAreaFrame? _imgFrame;
 
 	/// <summary>
-	/// デバッグ用です。<see cref="SaveImage(string, Rectangle?)"/>・<see cref="Capture(Rectangle?)"/>・<see cref="CheckImage(string, TransColor, Rectangle, ImageMatch)"/>・<see cref="CheckImages(string, TransColor, Rectangle, ImageMatch)"/>・<see cref="CheckColor(Color, Rectangle?, int)"/>・<see cref="CheckColors(Color, Rectangle?, int, int)"/> (Window 版も含む)・<see cref="PeekColor(Point)"/> の対象範囲に枠を表示します。
+	/// デバッグ用です。<see cref="SaveImage(string, Rectangle?)"/>・<see cref="Capture(Rectangle?)"/>・<see cref="CheckImage(string, TransColor, Rectangle, ImageMatch)"/>・<see cref="CheckImages(string, TransColor, Rectangle, ImageMatch)"/>・<see cref="CheckColor(Color, Rectangle?, int)"/>・<see cref="CheckColor(Color, Point, int)"/>・<see cref="CheckColors(Color, Rectangle?, int, int)"/> (Window 版も含む)・<see cref="PeekColor(Point)"/> の対象範囲に枠を表示します。
 	/// </summary>
 	/// <param name="enabled">true で表示します。false で表示をやめ、枠を消します。</param>
 	/// <param name="color">枠の色です。省略すると前回の指定のまま (初回は赤) です。</param>

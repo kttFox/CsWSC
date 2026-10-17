@@ -397,8 +397,12 @@ internal sealed partial class LanguageService( ScriptWorkspace workspace ) {
 	/// 設定は .editorconfig ([*.{cs,csws}] など .csws に当たるセクション) に従い、
 	/// そこに無いインデントの設定だけエディターの設定 (useTabs, tabSize) を使います。
 	/// </summary>
+	/// <param name="uri">ドキュメントの URI です。</param>
+	/// <param name="text">ドキュメントの内容です。</param>
 	/// <param name="start">整形する範囲の先頭です。</param>
 	/// <param name="end">整形する範囲の末尾です。負ならドキュメントの末尾までです。</param>
+	/// <param name="useTabs">.editorconfig に indent_style が無いとき、タブでインデントするかどうかです。</param>
+	/// <param name="tabSize">.editorconfig に indent_size・tab_width が無いときのインデントとタブの幅です。</param>
 	public async Task<TextEditEntry[]> FormatAsync( string uri, string text, int start, int end, bool useTabs, int tabSize ) {
 		var doc = workspace.GetDocumentWithEditorConfig( uri, text );
 		var tree = await doc.GetSyntaxTreeAsync();

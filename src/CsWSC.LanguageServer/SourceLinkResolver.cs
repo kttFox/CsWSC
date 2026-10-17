@@ -39,6 +39,7 @@ internal sealed class SourceLinkResolver( string cacheDir ) {
 	private readonly Dictionary<string, Module> _modules = new( StringComparer.OrdinalIgnoreCase );
 	private readonly SemaphoreSlim _lock = new( 1, 1 );
 
+	/// <param name="def">探す定義です。</param>
 	/// <param name="download">false ならダウンロードせず、dll に埋め込まれたものとキャッシュだけを使います。</param>
 	/// <returns>定義の場所です。見つからなければ空です。</returns>
 	public async Task<DefinitionEntry[]> ResolveAsync( MetadataDefinition def, bool download ) {

@@ -16,6 +16,7 @@ CsWSC スクリプト (`.csws`) と、`#r` で参照するライブラリ (`.csw
 - **参照数**: スクリプト内で定義した関数・プロパティ・フィールド・イベント・クラスなどの上に、そのファイル内の参照数を表示 (クリックで参照箇所を一覧)。設定 `cswsc.codeLens.*` で表示の有無と対象の種類を選べる
 - **コードアクション**: `Ctrl+.` で、C# と同じく Roslyn 組み込みのクイック修正 (`using` の追加など) やリファクタリング (`if` の反転など) を実行
 - **書式設定**: `Shift+Alt+F` (ドキュメント全体) / `Ctrl+K Ctrl+F` (選択範囲) で、C# と同じく Roslyn で整形
+- **ドキュメントコメント**: 定義の前の行で `///` と入力すると、`<summary>` と引数などの雛形を展開
 - **色分け**: C# と同じ
 
 ## 書式設定と .editorconfig
@@ -35,6 +36,12 @@ csharp_new_line_before_open_brace = none
 - `cswsc.exePath`: スクリプト実行に使う CsWSC.exe のパス (未設定なら初回実行時に選択して保存)
 - `cswsc.serverPath`: 解析サーバー (cswsc-server.exe) のパス (空なら拡張機能に同梱のものを使う)
 - `cswsc.sourceLink`: 「定義へ移動」で CsWSC や .NET のソースを `msdl.microsoft.com` と `raw.githubusercontent.com` からダウンロードする (既定はオン。取得したものは `%LOCALAPPDATA%\CsWSC\SourceLink` に保存)
+- `cswsc.codeLens.enabled`: 定義の上に、そのファイル内の参照数を表示する (既定はオン)。表示する定義の種類は次の各設定で選ぶ (いずれも既定はオン)
+  - `cswsc.codeLens.methods`: メソッドとローカル関数
+  - `cswsc.codeLens.properties`: プロパティ
+  - `cswsc.codeLens.fields`: フィールド・定数・列挙型のメンバー
+  - `cswsc.codeLens.events`: イベント
+  - `cswsc.codeLens.types`: クラス・構造体・インターフェース・列挙型・デリゲート
 
 ## 制限
 

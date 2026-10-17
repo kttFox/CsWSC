@@ -11,7 +11,7 @@ namespace CsWSC.UI;
 /// </summary>
 /// <remarks>
 /// やり取りは標準入出力のテキスト (UTF-8) です。JSON は初回の処理に約 30 ms かかるので使いません。
-/// 親 → 子: 要求 = 種類 ("run" / "compile") の行、パス (未保存なら空) の行、ソースの文字数の行、ソース本体です。
+/// 親 → 子: 要求 = 種類 ("run" / "compile") の行 (起動時間の記録があればタブ区切りで後ろに付ける)、パス (未保存なら空) の行、ソースの文字数の行、ソース本体です。
 ///          以降は "stop" の行で停止要求です。"compile" ではコンパイル結果をキャッシュに保存して終了します。
 /// 子 → 親: 1 行 1 メッセージで、項目はタブ区切りです (文字列は <see cref="Escape"/> する)。
 ///          compiling (1 = コンパイル開始, 0 = 終了) / print / visible / bounds / clear と、最後に ok / stopped / error のどれかです。
@@ -78,6 +78,10 @@ internal static class ScriptProcess {
 		return Process.Start( psi ) ?? throw new InvalidOperationException( "スクリプトのプロセスを起動できません。" );
 	}
 
+	/// <param name="process">要求を送る子プロセスです。</param>
+	/// <param name="kind">要求の種類 ("run" / "compile") です。</param>
+	/// <param name="source">スクリプトのソースです。</param>
+	/// <param name="path">スクリプトのパスです。未保存なら null です。</param>
 	/// <param name="trace">起動時間の記録 (<see cref="LaunchTrace"/>) です。種類の行にタブ区切りで付けます。</param>
 	private static void WriteRequest( Process process, string kind, string source, string? path, string? trace = null ) {
 		var stdin = process.StandardInput;
