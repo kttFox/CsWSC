@@ -1,4 +1,4 @@
-using System.Drawing.Imaging;
+﻿using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 
 namespace CsWSC;
@@ -11,8 +11,6 @@ internal static class ScreenImage {
 	/// <summary>画面の 1 ピクセルの色を取得します (PEEKCOLOR)。枠表示が有効ならそのピクセルを枠で囲みます。色を取れない位置 (画面の外など) なら例外です。</summary>
 	/// <param name="point">位置です (画面座標)。</param>
 	public static Color Peek( Point point ) {
-		var frame = Frame;
-		frame?.BeforeCapture();
 		var hdc = NativeMethods.GetDC( IntPtr.Zero );
 		try {
 			var bgr = NativeMethods.GetPixel( hdc, point.X, point.Y );
@@ -20,22 +18,20 @@ internal static class ScreenImage {
 				throw new ArgumentOutOfRangeException( nameof( point ), point, $"画面 (スクリーン座標 {point.X}, {point.Y}) の色を取得できません。画面の外を指定していないか確認してください。" );
 			}
 
-			frame?.Show( new Rectangle( point, new Size( 1, 1 ) ) );
+			Frame?.Show( new Rectangle( point, new Size( 1, 1 ) ) );
 			return Color.FromArgb( (int)( bgr & 0xFF ), (int)( ( bgr >> 8 ) & 0xFF ), (int)( ( bgr >> 16 ) & 0xFF ) );
 		} finally {
 			NativeMethods.ReleaseDC( IntPtr.Zero, hdc );
 		}
 	}
 
-	/// <summary>画面の範囲をキャプチャします。表示中の枠はキャプチャ前に隠し、枠表示が有効なら範囲に枠を出します。</summary>
+	/// <summary>画面の範囲をキャプチャします。枠は取り込みに写りません。枠表示が有効なら範囲に枠を出します。</summary>
 	/// <param name="area">キャプチャする範囲です (画面座標)。</param>
 	public static Bitmap Capture( Rectangle area ) {
-		var frame = Frame;
-		frame?.BeforeCapture();
 		var bmp = new Bitmap( area.Width, area.Height, PixelFormat.Format32bppArgb );
 		using var g = Graphics.FromImage( bmp );
 		g.CopyFromScreen( area.Location, Point.Empty, area.Size );
-		frame?.Show( area );
+		Frame?.Show( area );
 		return bmp;
 	}
 
@@ -266,7 +262,6 @@ internal static class ScreenImage {
 	/// Bitmap を介さず、DIB セクションに BitBlt して直接配列にコピーします (CopyFromScreen + LockBits より速い)。
 	/// </summary>
 	internal static int[] CapturePixels( Rectangle area ) {
-		Frame?.BeforeCapture();
 		var screen = NativeMethods.GetDC( IntPtr.Zero );
 		var dc = NativeMethods.CreateCompatibleDC( screen );
 		// biHeight を負にすると上から下の順に並ぶ

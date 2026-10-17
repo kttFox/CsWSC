@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using static CsWSC.NativeMethods;
 
 namespace CsWSC;
@@ -598,7 +598,7 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 	/// <param name="thickness">枠の太さ (ピクセル) です。省略すると前回の指定のまま (初回は 3) です。1 未満を指定すると例外になります。</param>
 	/// <param name="durationMs">枠を表示し続けるミリ秒数です。省略すると前回の指定のまま (初回は 1000) です。次のキャプチャがあっても前の枠は消さず、この時間が過ぎるまで新しい枠と一緒に表示します。0 以下なら次のキャプチャ (SaveImage・Capture・CheckImage・CheckColor・PeekColor など) まで表示し続けます。</param>
 	/// <remarks>
-	/// 枠は範囲の外側に描かれ、キャプチャの直前に隠してから取り込むため SaveImage / CheckImage の結果に影響しません。
+	/// 枠は範囲の外側に描かれ、画面には表示されたままキャプチャには写らないため SaveImage / CheckImage の結果に影響しません。
 	/// CheckImage / CheckImages / CheckColor / CheckColors では見つかった範囲にも枠を表示します。
 	/// PeekColor では対象の 1 ピクセルを囲む枠になります。
 	/// </remarks>
