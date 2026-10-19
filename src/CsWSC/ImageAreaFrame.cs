@@ -4,7 +4,7 @@ namespace CsWSC;
 
 /// <summary>
 /// キャプチャ・検索 (SaveImage / Capture / CheckImage / CheckColor / PeekColor など) の対象範囲を示すデバッグ用の枠です。
-/// 枠窓はレイヤードウィンドウにして、画面には表示したままキャプチャ (CAPTUREBLT なしの BitBlt・GetPixel) には写らないようにします。
+/// 枠窓はキャプチャ除外 (SetWindowDisplayAffinity の WDA_EXCLUDEFROMCAPTURE) にして、画面には表示したままキャプチャには写らないようにします。
 /// キャプチャのたびに枠を隠して出し直すと、対象のウィンドウの操作 (持つ・置くなど) を邪魔するため隠しません。
 /// 枠はキャプチャごとに出し、それぞれ指定時間のあいだ残します (複数の枠が同時に出ます)。
 /// キャプチャを遅くしないよう、表示は枠のスレッドに頼むだけで待たず (BeginInvoke)、同じ範囲の枠は作り直さずに表示時間だけ延ばし、
@@ -19,6 +19,11 @@ internal sealed class ImageAreaFrame : IDisposable {
 	private readonly object _lock = new();
 	// 枠のスレッドがまだ処理していない表示の頼み (_lock で守る)。同じ頼みは 1 つにまとめる
 	private readonly List<Request> _pending = [];
+	// 枠窓のハンドル。ウィンドウの列挙 (GetWindow など) で枠窓を除くのに使う
+	private static readonly System.Collections.Concurrent.ConcurrentDictionary<IntPtr, byte> _handles = new();
+
+	/// <summary>hWnd が枠窓なら true です。コマンドが枠窓を対象にしないよう、ウィンドウの列挙で除くのに使います。</summary>
+	internal static bool IsFrame( IntPtr hWnd ) => _handles.ContainsKey( hWnd );
 
 	private sealed record Request( Rectangle Area, Rectangle[] Hits, Color Color, int DurationMs, int Thickness ) {
 		public bool SameFrame( Request o ) => Area == o.Area && Color == o.Color && Thickness == o.Thickness && Hits.SequenceEqual( o.Hits );
@@ -107,6 +112,10 @@ internal sealed class ImageAreaFrame : IDisposable {
 	private FrameForm NewForm() {
 		var form = new FrameForm();
 		SetLayeredWindowAttributes( form.Handle, 0, 255, LWA_ALPHA );
+		// レイヤードウィンドウだけでは BitBlt に写ることがあるため、キャプチャから除く (Windows 10 2004 以降)
+		SetWindowDisplayAffinity( form.Handle, WDA_EXCLUDEFROMCAPTURE );
+		_handles[form.Handle] = 0;
+		form.HandleDestroyed += ( _, _ ) => _handles.TryRemove( form.Handle, out _ );
 		form.Expired += () => Remove( form );
 		return form;
 	}
@@ -171,6 +180,8 @@ internal sealed class ImageAreaFrame : IDisposable {
 	}
 
 	private const uint LWA_ALPHA = 0x2;
+	private const uint WDA_EXCLUDEFROMCAPTURE = 0x11;
+	[DllImport( "user32.dll" )] private static extern bool SetWindowDisplayAffinity( IntPtr hWnd, uint affinity );
 	[DllImport( "user32.dll" )] private static extern bool SetLayeredWindowAttributes( IntPtr hWnd, uint crKey, byte alpha, uint flags );
 
 	private sealed class FrameForm : Form {

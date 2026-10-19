@@ -379,7 +379,7 @@ public sealed partial class Window : ControlBase {
 	internal static List<Window> FindAll( string? title, string? className, bool firstOnly = false ) {
 		var list = new List<Window>();
 		EnumWindows( ( h, _ ) => {
-			if( !IsWindowVisible( h ) ) {
+			if( !IsWindowVisible( h ) || ImageAreaFrame.IsFrame( h ) ) {
 				return true;
 			}
 
@@ -405,6 +405,6 @@ public sealed partial class Window : ControlBase {
 	/// <returns>その位置のウィンドウです。無ければ null です。</returns>
 	internal static Window? FromPoint( int x, int y ) {
 		var h = WindowFromPoint( new POINT { X = x, Y = y } );
-		return h == IntPtr.Zero ? null : new Window( GetAncestor( h, GA_ROOT ) );
+		return h == IntPtr.Zero || ImageAreaFrame.IsFrame( h ) ? null : new Window( GetAncestor( h, GA_ROOT ) );
 	}
 }
