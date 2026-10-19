@@ -159,6 +159,8 @@ internal static class ScriptProcess {
 		try {
 			await RunCoreAsync( source, path, output, logWindow, cancellation );
 		} finally {
+			// コンパイルエラーなどで実行まで行かなかったときも表示を消す
+			LaunchNotice.ScriptStarted();
 			Prepare();
 		}
 	}
@@ -205,6 +207,7 @@ internal static class ScriptProcess {
 						notice?.Dispose();
 						notice = f[1] == "1" ? CompilingNotice.Begin() : null;
 						break;
+					case "started": LaunchNotice.ScriptStarted(); break;
 					case "print": output( Unescape( f[1] ) ); break;
 					case "visible": logWindow.SetVisible( f[1] == "1" ); break;
 					case "bounds": logWindow.SetBounds( ParseInt( f[1] ), ParseInt( f[2] ), ParseInt( f[3] ), ParseInt( f[4] ) ); break;
@@ -324,6 +327,7 @@ internal static class ScriptProcess {
 					if( trace != null ) trace = LaunchTrace.Append( trace, compiling ? "コンパイル開始" : "コンパイル終了", DateTime.UtcNow );
 					Send( compiling ? "compiling\t1" : "compiling\t0" );
 				}, () => {
+					Send( "started" );
 					if( trace != null ) PrintLog.WriteLaunch( path, LaunchTrace.Describe( LaunchTrace.Append( trace, "実行開始", DateTime.UtcNow ) ) );
 				} );
 			PrintLog.End( path, "正常終了" );

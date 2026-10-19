@@ -301,8 +301,9 @@ public partial class MainForm : Form {
 			}
 			LaunchTrace.Begin( fromHotkey ? "ホットキー受信" : "メニュー選択" );
 			// 遅いマシンでは起動に時間がかかるので、先に表示して押したのが効いたと分かるようにする
+			string? startedEvent = null;
 			if( fromHotkey && _settings.HotkeyLaunchNotice ) {
-				LaunchNotice.Started( path );
+				startedEvent = LaunchNotice.StartedInOtherProcess( path );
 				LaunchTrace.Mark( "通知表示" );
 			}
 			// CsWSC.exe スクリプト で起動する (メイン画面の再生とは独立して動き、終わったら終了する)
@@ -312,10 +313,12 @@ public partial class MainForm : Form {
 				};
 				LaunchTrace.Mark( "起動要求" );
 				if( LaunchTrace.Take() is { } trace ) psi.Environment[LaunchTrace.EnvironmentVariable] = trace;
+				if( startedEvent != null ) psi.Environment[LaunchNotice.EnvironmentVariable] = startedEvent;
 				var process = System.Diagnostics.Process.Start( psi );
 				if( fromHotkey && process != null ) _launcherProcesses[key] = process;
 				else process?.Dispose();
 			} catch( Exception ex ) {
+				LaunchNotice.ScriptStarted();
 				MessageBox.Show( this, ex.Message, AppName, MessageBoxButtons.OK, MessageBoxIcon.Error );
 			}
 			return;
