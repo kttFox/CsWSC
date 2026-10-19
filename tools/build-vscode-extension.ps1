@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  VS Code 拡張 (editors/vscode) を VSIX にまとめる。-Install を付けると VS Code にインストールする。
+  VS Code 拡張 (editors/vscode) を VSIX にまとめる。実行用の CsWSC.UI も Release でビルドする。-Install を付けると VS Code にインストールする。
   GitHub Actions (.github/workflows/release-vscode.yml) と同じ手順 (vsce) で作るため Node.js が必要。
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File tools\build-vscode-extension.ps1 -Install
@@ -19,6 +19,10 @@ if (-not (Get-Command npx -ErrorAction SilentlyContinue)) { throw 'Node.js (npx)
 if (Test-Path $serverOut) { Remove-Item $serverOut -Recurse -Force }
 dotnet publish (Join-Path $root 'src\CsWSC.LanguageServer') -c Release -o $serverOut --nologo -v q
 if ($LASTEXITCODE -ne 0) { throw 'dotnet publish に失敗しました' }
+
+# 実行に使う CsWSC.exe (bin\Release) も解析サーバーと同じ版にそろえる
+dotnet build (Join-Path $root 'src\CsWSC.UI') -c Release --nologo -v q
+if ($LASTEXITCODE -ne 0) { throw 'CsWSC.UI のビルドに失敗しました' }
 
 # 2. VSIX を作成 (解析サーバーが Windows 専用なので win32-x64 向け)
 New-Item -ItemType Directory -Force $artifacts | Out-Null
