@@ -24,6 +24,21 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 	public string ScriptName { get; } = scriptPath is null ? "" : System.IO.Path.GetFileName( scriptPath );
 
 	/// <summary>
+	/// 実行中のスクリプトがあるフォルダーのフルパスです (末尾に \ は付きません)。
+	/// </summary>
+	/// <remarks>
+	/// ファイルから実行していない場合は空文字です。
+	/// カレントフォルダー (<c>Environment.CurrentDirectory</c>) と違い、起動方法やスクリプト内での変更に左右されません。
+	/// </remarks>
+	/// <example>
+	/// <code>
+	/// Print(ScriptDir); // C:\scripts
+	/// var img = System.IO.Path.Combine(ScriptDir, "ok.png");
+	/// </code>
+	/// </example>
+	public string ScriptDir { get; } = scriptPath is null ? "" : System.IO.Path.GetDirectoryName( System.IO.Path.GetFullPath( scriptPath ) ) ?? "";
+
+	/// <summary>
 	/// スクリプトを実行しているプロセスの ID です。
 	/// </summary>
 	/// <remarks>スクリプトは 1 回の実行ごとに別プロセスで動くので、同時に実行しているスクリプトを区別できます。ログの [スクリプト名:プロセス ID] と同じ値です。</remarks>

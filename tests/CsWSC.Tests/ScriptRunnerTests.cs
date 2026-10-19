@@ -296,6 +296,14 @@ public class ScriptRunnerTests {
 		ScriptRunner.Compile( "#r \"CsWSC.Core.dll\"\nvar t = typeof(CsWSC.ScriptGlobals);", path );
 	}
 
+	[Fact]
+	public void ScriptDir_IsFolderOfScript() {
+		var dir = Path.Combine( Path.GetTempPath(), "CsWSC フォルダー" );
+		var lines = new List<string>();
+		ScriptRunner.Run( "Print(ScriptDir); Print(ScriptName);", lines.Add, CancellationToken.None, path: Path.Combine( dir, "main.csws" ) );
+		Assert.Equal( [dir.TrimEnd( '\\' ), "main.csws"], lines );
+	}
+
 
 	[Theory]
 	[InlineData( "var n = 0;\nwhile (true) { n++; }" )]

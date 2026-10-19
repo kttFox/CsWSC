@@ -134,6 +134,21 @@ string ScriptName
 Print(ScriptName); // main.csws
 ```
 
+### ScriptDir
+
+```csharp
+string ScriptDir
+```
+
+実行中のスクリプトがあるフォルダーのフルパスです (末尾に `\` は付きません)。  
+カレントフォルダー (`Environment.CurrentDirectory`) と違い、起動方法やスクリプト内での変更に左右されません。  
+未保存のときは空文字です。
+
+```csharp
+Print(ScriptDir); // C:\scripts
+var img = System.IO.Path.Combine(ScriptDir, "ok.png");
+```
+
 ### ProcessId
 
 ```csharp

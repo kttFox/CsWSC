@@ -485,6 +485,7 @@ excel.Cells(1, 1).Value = "Hello";
 | `GET_CUR_DIR` | `Environment.CurrentDirectory` |
 | `GET_UWSC_DIR` | `AppContext.BaseDirectory` |
 | `GET_UWSC_NAME` | `ScriptName` |
+| (スクリプトのフォルダー) | `ScriptDir` |
 | `GET_WIN_DIR` / `GET_SYS_DIR` | `Environment.GetFolderPath(Environment.SpecialFolder.Windows)` / `.System` |
 | `GET_APPDATA_DIR` | `Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)` |
 | `ENVIRON("PATH")` | `Environment.GetEnvironmentVariable("PATH")` |
