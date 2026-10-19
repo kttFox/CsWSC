@@ -56,6 +56,14 @@ public partial class PrintForm : Form, ILogWindow {
 		if( Visible ) UpdateZOrder();
 	}
 
+	// アクティブにせずに表示し、最前面に出す
+	// (OnVisibleChanged は WM_SHOWWINDOW の時点、つまり実際に表示される前に呼ばれ、
+	//  その後の ShowWindow で Z オーダーが変わりうるので、表示し終えてからもう一度合わせる)
+	private void ShowNoActivate() {
+		Show();
+		UpdateZOrder();
+	}
+
 	public void Clear() => OnUi( ClearText );
 
 	/// <summary>スクリプト開始時の初期化です。内容を消し、LogPrint の非表示指定も解除します。</summary>
@@ -65,7 +73,7 @@ public partial class PrintForm : Form, ILogWindow {
 	}
 
 	public void AppendLine( string text ) {
-		if( !Visible && !_suppressed ) Show();
+		if( !Visible && !_suppressed ) ShowNoActivate();
 		foreach( var line in text.Split( '\n' ) ) {
 			_maxLineWidth = Math.Max( _maxLineWidth, MeasureLine( line.TrimEnd( '\r' ) ) );
 		}
@@ -107,7 +115,7 @@ public partial class PrintForm : Form, ILogWindow {
 
 	void ILogWindow.SetVisible( bool visible ) => OnUi( () => {
 		_suppressed = !visible;
-		if( visible && !Visible ) Show();
+		if( visible && !Visible ) ShowNoActivate();
 		else if( !visible && Visible ) Hide();
 	} );
 
