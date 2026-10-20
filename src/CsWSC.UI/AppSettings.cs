@@ -52,7 +52,7 @@ public sealed class AppSettings {
 	public Hotkey PlayHotkey { get; set; } = new( "ALT", "F1" );
 	public Hotkey StopHotkey { get; set; } = new( "ALT", "F2" );
 	public Hotkey RecordHotkey { get; set; } = new( "ALT", "F3" );
-	public Hotkey TrayHotkey { get; set; } = new( "WIN", "F1" );
+	public Hotkey TrayHotkey { get; set; } = new( "ALT", "F12" );
 
 	/// <summary>ホットキーで実行したとき、マウスカーソルの近くに実行したスクリプト名を少しの間表示します。</summary>
 	public bool HotkeyLaunchNotice { get; set; } = true;
