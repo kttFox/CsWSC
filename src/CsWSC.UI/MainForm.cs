@@ -77,7 +77,9 @@ public partial class MainForm : Form {
 		if( DesignMode ) return;
 
 		_ = _printForm.Handle; // スクリプトのスレッドから Invoke できるよう先に作っておく
-		TopMost = topMostMenuItem.Checked = _settings.TopMost;
+		// TopMost プロパティは SWP_NOACTIVATE を付けずに SetWindowPos するので、別プロセスで実行するときに操作中の窓からフォーカスを奪う
+		topMostMenuItem.Checked = _settings.TopMost;
+		SetTopMostNoActivate( _settings.TopMost );
 		if( _settings.Location is { } loc && Screen.AllScreens.Any( s => s.WorkingArea.Contains( loc ) ) ) {
 			StartPosition = FormStartPosition.Manual;
 			Location = loc;
@@ -89,7 +91,10 @@ public partial class MainForm : Form {
 	}
 
 	/// <summary>起動引数のスクリプトを実行するときは、操作対象の窓からフォーカスを奪わないようアクティブにしません。</summary>
-	protected override bool ShowWithoutActivation => _autoRun != null;
+	protected override bool ShowWithoutActivation => _autoRun != null || _showingNoActivate;
+
+	/// <summary>トレイから自動で戻すときに、操作中の窓からフォーカスを奪わないよう一時的に立てます。</summary>
+	private bool _showingNoActivate;
 
 	protected override async void OnShown( EventArgs e ) {
 		base.OnShown( e );
@@ -835,10 +840,20 @@ public partial class MainForm : Form {
 		Hide();
 	}
 
-	private void RestoreFromTray() {
+	/// <param name="activate">false なら表示してもアクティブにしません (再生の終了時など、操作中の窓をそのままにするとき)。</param>
+	private void RestoreFromTray( bool activate = true ) {
 		_autoTrayed = false;
-		Show();
-		Activate();
+		if( activate ) {
+			Show();
+			Activate();
+		} else {
+			_showingNoActivate = true;
+			try { Show(); } finally { _showingNoActivate = false; }
+			// アクティブにしないと他の窓の後ろに出るので、いったん最前面にしてから設定に戻して前面へ出す
+			// (最前面を外すと、最前面でない窓の中の一番上に置かれる)
+			SetTopMostNoActivate( true );
+			SetTopMostNoActivate( _settings.TopMost );
+		}
 		trayIcon.Visible = false;
 	}
 
@@ -848,7 +863,7 @@ public partial class MainForm : Form {
 		if( active && Visible ) {
 			_autoTrayed = true;
 			MinimizeToTray();
-		} else if( !active && _autoTrayed ) RestoreFromTray();
+		} else if( !active && _autoTrayed ) RestoreFromTray( activate: false );
 	}
 
 	private void TrayIcon_MouseClick( object? sender, MouseEventArgs e ) {

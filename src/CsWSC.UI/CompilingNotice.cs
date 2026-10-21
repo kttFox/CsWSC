@@ -50,6 +50,18 @@ internal sealed partial class CompilingNotice : Form {
 		showTimer.Stop();
 		var area = Screen.FromPoint( Cursor.Position ).WorkingArea;
 		Location = new Point( area.Left + ( area.Width - PreferredSize.Width ) / 2, area.Top + ( area.Height - PreferredSize.Height ) / 2 );
-		Show();
+		// Show() は WinForms がアクティブ化を伴う処理を挟むことがあるので、アクティブにしない指定で直接表示する
+		const int SW_SHOWNOACTIVATE = 4;
+		const uint SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOACTIVATE = 0x0010;
+		ShowWindow( Handle, SW_SHOWNOACTIVATE );
+		SetWindowPos( Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE );
 	}
+
+	[System.Runtime.InteropServices.DllImport( "user32.dll" )]
+	private static extern bool ShowWindow( IntPtr hWnd, int nCmdShow );
+
+	[System.Runtime.InteropServices.DllImport( "user32.dll" )]
+	private static extern bool SetWindowPos( IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags );
+
+	private static readonly IntPtr HWND_TOPMOST = new( -1 );
 }
