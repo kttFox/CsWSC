@@ -149,16 +149,19 @@ public static class ScriptRunner {
 	/// cacheDirectory を指定するとコンパイル結果を保存し、次回からは Roslyn を読み込まずに実行します。
 	/// compiling はキャッシュが使えずコンパイルするときに、コンパイルの前 (true) と後 (false) に呼ばれます (待機表示用)。
 	/// executing はコンパイル (またはキャッシュの読み込み) が済み、実行を始める直前に呼ばれます (起動時間の計測用)。
+	/// staleCache はキャッシュが依存ファイル (#load / #r) の変更で使えなかったときに、コンパイルの後で呼ばれます (ほかのスクリプトのコンパイルし直し用)。
 	/// </summary>
-	public static void Run( string code, Action<string> output, CancellationToken cancellation, ILogWindow? logWindow = null, string? path = null, string? cacheDirectory = null, Action<bool>? compiling = null, Action? executing = null ) {
+	public static void Run( string code, Action<string> output, CancellationToken cancellation, ILogWindow? logWindow = null, string? path = null, string? cacheDirectory = null, Action<bool>? compiling = null, Action? executing = null, Action? staleCache = null ) {
 		ThrowIfLibrary( path );
 		var filePath = System.IO.Path.GetFullPath( path ?? System.IO.Path.Combine( AppContext.BaseDirectory, ScriptPath ) );
 		var cachePath = ScriptCache.GetPath( cacheDirectory, code, filePath );
 		// キャッシュがあれば Roslyn を使わない (コンパイル処理は別メソッドにして Roslyn の読み込みを避ける)
 		var compiled = cachePath != null ? ScriptCache.TryRead( cachePath ) : null;
 		if( compiled == null ) {
+			var stale = cachePath != null && System.IO.File.Exists( cachePath );
 			compiling?.Invoke( true );
 			try { compiled = CompileToImage( code, path, cachePath ); } finally { compiling?.Invoke( false ); }
+			if( stale ) staleCache?.Invoke();
 		}
 		executing?.Invoke();
 		Execute( compiled, filePath, output, cancellation, logWindow, setStopToken: true );
@@ -252,6 +255,35 @@ public static class ScriptRunner {
 		CompileToImage( code, path, cachePath );
 	}
 
+	/// <summary>キャッシュ済みのスクリプトが #load / #r しているファイルのフルパスです (常駐プロセスでの変更の監視用)。</summary>
+	public static IReadOnlySet<string> CachedDependencies( string cacheDirectory ) => ScriptCache.Dependencies( cacheDirectory );
+
+	/// <summary>
+	/// 依存ファイル (#load / #r) が変わって使えなくなったキャッシュを、スクリプト本体を読み直してコンパイルし直します。
+	/// 共通のスクリプトを変更した後に、ダブルクリックで実行したときのコンパイル待ちを無くすためのものです。
+	/// 本体が無くなったものや、本体が書き換わって別のキャッシュになったものは古いキャッシュを消します。コンパイルエラーは飛ばします (実行時に報告される)。
+	/// </summary>
+	public static void RecompileStale( string cacheDirectory ) {
+		foreach( var (main, cachePath) in ScriptCache.FindStale( cacheDirectory ) ) {
+			string code;
+			try { code = System.IO.File.ReadAllText( main ); } catch( Exception e ) when( e is System.IO.IOException or UnauthorizedAccessException ) {
+				ScriptCache.Delete( cachePath );
+				continue;
+			}
+
+			var current = ScriptCache.GetPath( cacheDirectory, code, main )!;
+			if( !string.Equals( current, cachePath, StringComparison.OrdinalIgnoreCase ) ) {
+				ScriptCache.Delete( cachePath );
+				// 今の本体のキャッシュが使えるなら、コンパイルし直さない
+				if( ScriptCache.IsFresh( current ) ) {
+					continue;
+				}
+			}
+
+			try { CompileToImage( code, main, current ); } catch( ScriptException ) { }
+		}
+	}
+
 	/// <summary>
 	/// 小さなスクリプトをコンパイル・実行して、Roslyn と実行経路の JIT・読み込みを済ませます (待機用プロセス向け)。
 	/// 初回コンパイルは約 1 秒かかりますが、これを済ませておくと 2 回目以降は約 0.1 秒になります。
@@ -307,7 +339,7 @@ public static class ScriptRunner {
 			.Select( r => r.FilePath ).OfType<string>().Where( f => !defaults.Contains( f ) );
 		var entry = new ScriptCache.Entry( stream.ToArray(), [.. references.Distinct( StringComparer.OrdinalIgnoreCase )] );
 		if( cachePath != null ) {
-			ScriptCache.Write( cachePath, entry, [.. loads.Distinct( StringComparer.OrdinalIgnoreCase )] );
+			ScriptCache.Write( cachePath, entry, path != null ? System.IO.Path.GetFullPath( path ) : null, [.. loads.Distinct( StringComparer.OrdinalIgnoreCase )] );
 		}
 
 		return entry;

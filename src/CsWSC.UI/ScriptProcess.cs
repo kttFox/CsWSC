@@ -329,7 +329,9 @@ internal static class ScriptProcess {
 				}, () => {
 					Send( "started" );
 					if( trace != null ) PrintLog.WriteLaunch( path, LaunchTrace.Describe( LaunchTrace.Append( trace, "実行開始", DateTime.UtcNow ) ) );
-				} );
+				},
+				// 共通のスクリプトなどが変わっていたら、同じものに依存するほかのスクリプトも裏でコンパイルし直しておく
+				Program.StartRecompile );
 			PrintLog.End( path, "正常終了" );
 			Send( "ok" );
 		} catch( OperationCanceledException ) {

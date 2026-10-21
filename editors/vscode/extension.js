@@ -599,6 +599,20 @@ async function debugScript() {
   if (!started) run.end();
 }
 
+/**
+ * #load / #r しているファイルが変わったスクリプトのキャッシュを、CsWSC.exe --recompile で裏でコンパイルし直す
+ * (ダブルクリックで実行したときにコンパイルを待たないように)。保存のたびに呼ぶので、exePath が未設定なら選ばせずに何もしない
+ */
+function recompileDependents() {
+  const exe = vscode.workspace.getConfiguration('cswsc').get('exePath');
+  if (!exe || !fs.existsSync(exe)) return;
+  try {
+    cp.spawn(exe, ['--recompile'], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  } catch (e) {
+    log.appendLine(`--recompile を起動できませんでした: ${e.message}`);
+  }
+}
+
 const CSHARP_EXTENSION = 'ms-dotnettools.csharp';
 
 /** CsWSC.exe のパス。未設定またはファイルが無ければ選んでもらう (キャンセルなら undefined) */
@@ -651,6 +665,7 @@ function activate(context) {
     vscode.workspace.onDidSaveTextDocument(doc => {
       if (doc.languageId === LIBRARY_LANGUAGE)
         vscode.workspace.textDocuments.filter(d => d.languageId === LANGUAGE).forEach(scheduleDiagnostics);
+      if (isAnalyzed(doc)) recompileDependents();
     }),
     vscode.workspace.onDidCloseTextDocument(doc => {
       if (!isAnalyzed(doc)) return;

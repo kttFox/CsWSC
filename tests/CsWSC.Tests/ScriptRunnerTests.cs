@@ -392,4 +392,68 @@ public class ScriptRunnerTests {
 		var ex = Assert.Throws<ScriptException>( () => Run( "var a = 0;\nwhile (a < 1)\n{\n    a++;\n    throw new Exception(\"x\");\n}" ) );
 		Assert.Equal( 5, ex.Line );
 	}
+
+	[Fact]
+	public void RecompileStale_RecompilesScriptsThatLoadChangedFile() {
+		var dir = Path.Combine( Path.GetTempPath(), "CsWSC.Tests", Guid.NewGuid().ToString( "N" ) );
+		var cache = Path.Combine( dir, "cache" );
+		Directory.CreateDirectory( dir );
+		try {
+			var common = Path.Combine( dir, "共通.csws" );
+			File.WriteAllText( common, "string Name() => \"a\";" );
+			var scripts = new[] { "1.csws", "2.csws" }.Select( n => Path.Combine( dir, n ) ).ToList();
+			foreach( var s in scripts ) File.WriteAllText( s, "#load \"共通.csws\"\nPrint( Name() );" );
+			var other = Path.Combine( dir, "other.csws" );
+			File.WriteAllText( other, "Print( 1 );" );
+
+			List<string> RunCached( string path, out bool compiled, out bool stale ) {
+				var output = new List<string>();
+				var c = false;
+				var st = false;
+				ScriptRunner.Run( File.ReadAllText( path ), output.Add, CancellationToken.None, path: path, cacheDirectory: cache,
+					compiling: b => c |= b, staleCache: () => st = true );
+				compiled = c;
+				stale = st;
+				return output;
+			}
+
+			foreach( var s in scripts.Append( other ) ) RunCached( s, out _, out _ );
+
+			File.WriteAllText( common, "string Name() => \"bb\";" ); // サイズも変える
+			ScriptRunner.RecompileStale( cache );
+
+			foreach( var s in scripts ) {
+				Assert.Equal( ["bb"], RunCached( s, out var compiled, out var stale ) );
+				Assert.False( compiled );
+				Assert.False( stale );
+			}
+			Assert.Equal( ["1"], RunCached( other, out var otherCompiled, out _ ) );
+			Assert.False( otherCompiled );
+		} finally {
+			try { Directory.Delete( dir, true ); } catch( IOException ) { }
+		}
+	}
+
+	[Fact]
+	public void Run_ReportsStaleCache() {
+		var dir = Path.Combine( Path.GetTempPath(), "CsWSC.Tests", Guid.NewGuid().ToString( "N" ) );
+		var cache = Path.Combine( dir, "cache" );
+		Directory.CreateDirectory( dir );
+		try {
+			var common = Path.Combine( dir, "共通.csws" );
+			File.WriteAllText( common, "int N() => 1;" );
+			var script = Path.Combine( dir, "main.csws" );
+			File.WriteAllText( script, "#load \"共通.csws\"\nPrint( N() );" );
+			var stale = 0;
+			void RunIt() => ScriptRunner.Run( File.ReadAllText( script ), _ => { }, CancellationToken.None, path: script, cacheDirectory: cache, staleCache: () => stale++ );
+
+			RunIt(); // キャッシュが無いだけなら通知しない
+			Assert.Equal( 0, stale );
+			File.WriteAllText( common, "int N() => 22;" );
+			RunIt();
+			Assert.Equal( 1, stale );
+		} finally {
+			try { Directory.Delete( dir, true ); } catch( IOException ) { }
+		}
+	}
 }

@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace CsWSC.UI;
 
 static class Program {
@@ -6,6 +8,7 @@ static class Program {
 	///  ファイルを読めなければ通常どおり起動します。
 	///  CsWSC.exe --run-script [--warmup]  … スクリプトを実行する子プロセスとして動きます (内部用)。
 	///  CsWSC.exe --debug スクリプト.csws  … デバッグ実行します (VS Code 拡張から使う)。
+	///  CsWSC.exe --recompile  … 依存ファイル (#load / #r) が変わったキャッシュをコンパイルし直して終了します (VS Code 拡張・実行時に裏で使う)。
 	/// </summary>
 	[STAThread]
 	static void Main( string[] args ) {
@@ -18,6 +21,11 @@ static class Program {
 		if( args is [DebugArgument, var debugPath] ) {
 			ApplicationConfiguration.Initialize();
 			Environment.Exit( RunForDebug( debugPath ) );
+			return;
+		}
+
+		if( args is [RecompileArgument] ) {
+			Environment.Exit( Recompile() );
 			return;
 		}
 
@@ -48,11 +56,41 @@ static class Program {
 			ScriptProcess.Shutdown();
 			return;
 		}
+		// 常駐する起動のときだけ、共通のスクリプトなどの変更を見張ってキャッシュを作り直す
+		using var watcher = DependencyWatcher.Start();
 		Application.Run( new MainForm() );
 	}
 
 	/// <summary>CsWSC.exe --debug スクリプト.csws … デバッガーから起動する用です。</summary>
 	public const string DebugArgument = "--debug";
+
+	/// <summary>CsWSC.exe --recompile … 依存ファイルが変わったキャッシュをコンパイルし直す用です。</summary>
+	public const string RecompileArgument = "--recompile";
+
+	/// <summary>
+	/// 依存ファイルが変わったキャッシュをコンパイルし直します。スクリプトの実行を邪魔しないよう優先度を下げ、同時には 1 つだけ動かします。
+	/// 動いている間に別の変更があった場合に取りこぼさないよう、待っている側は終わるのを待ってからもう一度行います。
+	/// </summary>
+	private static int Recompile() {
+		try { Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.BelowNormal; } catch( Exception ) { }
+		using var mutex = new Mutex( false, @"Local\CsWSC.Recompile" );
+		try {
+			try { mutex.WaitOne(); } catch( AbandonedMutexException ) { }
+			ScriptRunner.RecompileStale( ScriptRunner.DefaultCacheDirectory );
+			return 0;
+		} catch( Exception ) {
+			return 1;
+		} finally {
+			mutex.ReleaseMutex();
+		}
+	}
+
+	/// <summary>--recompile を別プロセスで裏で起動します (終わるのを待たない)。</summary>
+	public static void StartRecompile() {
+		try {
+			using var _ = Process.Start( new ProcessStartInfo( Environment.ProcessPath!, RecompileArgument ) { UseShellExecute = false, CreateNoWindow = true } );
+		} catch( Exception ) { }
+	}
 
 	/// <summary>
 	/// デバッガーのブレークポイントで止まれるよう、子プロセスを使わずこのプロセスで実行します。
