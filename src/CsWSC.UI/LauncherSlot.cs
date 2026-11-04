@@ -25,8 +25,12 @@ public sealed class LauncherSlot {
 	/// <summary>CsWSC の再生とは別に起動します (再生中でも実行でき、STOP では止まらない)。</summary>
 	public bool SeparateProcess { get; set; }
 
-	/// <summary>メニューを開かずに直接実行するホットキー (任意) です。対象アプリのランチャー (AppSettings.LauncherProfiles の要素) ではメニューを開くホットキーです。</summary>
-	public Hotkey Hotkey { get; set; } = new( "", "なし" );
+	/// <summary>
+	/// メニューを開かずに直接実行するホットキー (任意、複数可) です。対象アプリのランチャー (AppSettings.LauncherProfiles の要素) ではメニューを開くホットキーです。
+	/// JSON の名前は 1 つだけ設定できた頃のまま (HotkeyListConverter で旧形式も読める) です。
+	/// </summary>
+	[JsonPropertyName( "Hotkey" ), JsonConverter( typeof( HotkeyListConverter ) )]
+	public List<Hotkey> Hotkeys { get; set; } = [];
 
 	/// <summary>
 	/// 対象アプリのランチャー (AppSettings.LauncherProfiles) の条件: 前面の窓のプロセス名です。
@@ -69,7 +73,7 @@ public sealed class LauncherSlot {
 		Path = Path,
 		Children = Children?.Select( c => c.Clone() ).ToList(),
 		SeparateProcess = SeparateProcess,
-		Hotkey = Hotkey,
+		Hotkeys = [.. Hotkeys],
 		TargetApps = TargetApps,
 		TargetTitle = TargetTitle,
 	};
@@ -97,21 +101,26 @@ public sealed class LauncherSlot {
 
 	private static IEnumerable<(LauncherSlot, LauncherSlot[])> HotkeyScripts( IEnumerable<LauncherSlot> slots, LauncherSlot[] parents ) =>
 		slots.SelectMany( s => s.IsFolder ? HotkeyScripts( s.Children!, parents )
-			: s.IsScript && s.Hotkey.Enabled ? [(s, parents)] : (IEnumerable<(LauncherSlot, LauncherSlot[])>)[] );
+			: s.IsScript && s.Hotkeys.Any( h => h.Enabled ) ? [(s, parents)] : (IEnumerable<(LauncherSlot, LauncherSlot[])>)[] );
 
 	/// <summary>
 	/// ランチャーのホットキー (メニューを開くキーと各枠のキー) をすべて並べます。
 	/// defaults は対象アプリなしの 36 枠、profiles は対象アプリごとのランチャー (Hotkey がメニューを開くキー) です。
 	/// </summary>
-	public static IEnumerable<LauncherHotkeyEntry> HotkeyEntries( Hotkey defaultMenuHotkey, List<LauncherSlot> defaults, IEnumerable<LauncherSlot> profiles ) {
+	public static IEnumerable<LauncherHotkeyEntry> HotkeyEntries( IEnumerable<Hotkey> defaultMenuHotkeys, List<LauncherSlot> defaults, IEnumerable<LauncherSlot> profiles ) {
 		var defaultRoot = new LauncherSlot { Children = defaults };
-		if( defaultMenuHotkey.Enabled ) yield return new( defaultMenuHotkey, [], null, defaultRoot );
-		foreach( var (slot, conditions) in HotkeyScripts( defaults ) ) yield return new( slot.Hotkey, conditions, slot, null );
+		foreach( var h in Enabled( defaultMenuHotkeys ) ) yield return new( h, [], null, defaultRoot );
+		foreach( var e in ScriptEntries( HotkeyScripts( defaults ) ) ) yield return e;
 		foreach( var profile in profiles ) {
-			if( profile.Hotkey.Enabled ) yield return new( profile.Hotkey, [profile], null, profile );
-			foreach( var (slot, conditions) in HotkeyScripts( profile.Children ?? [], profile ) ) yield return new( slot.Hotkey, conditions, slot, null );
+			foreach( var h in Enabled( profile.Hotkeys ) ) yield return new( h, [profile], null, profile );
+			foreach( var e in ScriptEntries( HotkeyScripts( profile.Children ?? [], profile ) ) ) yield return e;
 		}
 	}
+
+	private static IEnumerable<Hotkey> Enabled( IEnumerable<Hotkey> hotkeys ) => hotkeys.Where( h => h.Enabled );
+
+	private static IEnumerable<LauncherHotkeyEntry> ScriptEntries( IEnumerable<(LauncherSlot Slot, LauncherSlot[] Conditions)> scripts ) =>
+		scripts.SelectMany( x => Enabled( x.Slot.Hotkeys ).Select( h => new LauncherHotkeyEntry( h, x.Conditions, x.Slot, null ) ) );
 
 	/// <summary>
 	/// ランチャーのホットキーの重複を調べ、問題があればメッセージを返します。
@@ -164,7 +173,7 @@ public sealed class LauncherSlot {
 
 	/// <summary>対象アプリなしの枠だけでの重複チェック (root を渡すとその対象アプリのランチャーとして調べる) です。テスト用です (アプリ本体は上の版を使う)。</summary>
 	public static string? CheckHotkeys( IEnumerable<LauncherSlot> slots, IEnumerable<Hotkey> reserved, LauncherSlot? root = null ) =>
-		CheckHotkeys( HotkeyScripts( slots, root ).Select( x => new LauncherHotkeyEntry( x.Slot.Hotkey, x.Conditions, x.Slot, null ) ), reserved );
+		CheckHotkeys( ScriptEntries( HotkeyScripts( slots, root ) ), reserved );
 }
 
 /// <summary>

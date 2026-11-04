@@ -4,24 +4,24 @@ namespace CsWSC.UI;
 public partial class LauncherSlotDialog : Form {
 	private readonly LauncherSlot _slot;
 	private readonly IEnumerable<Hotkey> _ownHotkeys;
-	private Hotkey _hotkey;
+	private List<Hotkey> _hotkeys;
 
 	public LauncherSlotDialog() : this( 0, new(), [] ) { }
 
 	/// <param name="index">枠の番号 (タイトルにキーを出す) です。</param>
 	/// <param name="slot">設定する枠 (このダイアログでは書き換えない。結果は <see cref="Slot"/>) です。</param>
-	/// <param name="ownHotkeys">CsWSC の設定にあるホットキー (HotkeyDialog に渡す) です。</param>
+	/// <param name="ownHotkeys">CsWSC の設定にあるホットキー (HotkeyListDialog に渡す) です。</param>
 	public LauncherSlotDialog( int index, LauncherSlot slot, IEnumerable<Hotkey> ownHotkeys ) {
 		InitializeComponent();
 		_slot = slot;
 		_ownHotkeys = ownHotkeys;
-		_hotkey = slot.Hotkey;
+		_hotkeys = [.. slot.Hotkeys];
 		Text = $"スクリプト設定 - {LauncherSlot.KeyOf( index )}";
 
 		titleTextBox.Text = slot.Title;
 		pathTextBox.Text = slot.Path;
 		separateCheckBox.Checked = slot.SeparateProcess;
-		hotkeyTextBox.Text = _hotkey.ToDisplayString();
+		hotkeyTextBox.Text = Hotkey.ToDisplayString( _hotkeys );
 		if( slot.IsFolder ) folderRadioButton.Checked = true;
 		else if( slot.IsScript ) scriptRadioButton.Checked = true;
 		else noneRadioButton.Checked = true;
@@ -51,10 +51,10 @@ public partial class LauncherSlotDialog : Form {
 	}
 
 	private void HotkeyButton_Click( object? sender, EventArgs e ) {
-		using var dlg = new HotkeyDialog( titleTextBox.Text, _hotkey, _ownHotkeys );
+		using var dlg = new HotkeyListDialog( titleTextBox.Text, _hotkeys, _ownHotkeys );
 		if( dlg.ShowDialog( this ) != DialogResult.OK ) return;
-		_hotkey = dlg.Hotkey;
-		hotkeyTextBox.Text = _hotkey.ToDisplayString();
+		_hotkeys = dlg.Hotkeys;
+		hotkeyTextBox.Text = Hotkey.ToDisplayString( _hotkeys );
 	}
 
 	private void OkButton_Click( object? sender, EventArgs e ) {
@@ -65,7 +65,7 @@ public partial class LauncherSlotDialog : Form {
 				MessageBox.Show( this, "スクリプトファイルを指定してください。", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning );
 				return;
 			}
-			Slot = new() { Title = title, Path = Path.GetFullPath( path ), SeparateProcess = separateCheckBox.Checked, Hotkey = _hotkey };
+			Slot = new() { Title = title, Path = Path.GetFullPath( path ), SeparateProcess = separateCheckBox.Checked, Hotkeys = _hotkeys };
 		} else if( folderRadioButton.Checked ) {
 			if( title == "" ) {
 				MessageBox.Show( this, "階層名をタイトルに入力してください。", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning );

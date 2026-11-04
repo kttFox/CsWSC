@@ -12,8 +12,8 @@ public partial class SettingsForm : Form {
 
 		foreach( var row in HotkeyRows ) {
 			row.Button.Click += ( _, _ ) => {
-				using var dlg = new HotkeyDialog( row.Name, row.Hotkey, OwnHotkeys() );
-				if( dlg.ShowDialog( this ) == DialogResult.OK ) SetHotkey( row, dlg.Hotkey );
+				using var dlg = new HotkeyListDialog( row.Name, row.Hotkeys, OwnHotkeys() );
+				if( dlg.ShowDialog( this ) == DialogResult.OK ) SetHotkeys( row, dlg.Hotkeys );
 			};
 		}
 
@@ -21,12 +21,12 @@ public partial class SettingsForm : Form {
 		UpdateLowLevelOptions();
 	}
 
-	/// <summary>ホットキー 1 行分 (表示欄と変更ボタン) です。設定中の値は Hotkey に持ちます。</summary>
+	/// <summary>ホットキー 1 行分 (表示欄と変更ボタン) です。設定中の値は Hotkeys に持ちます。</summary>
 	private sealed class HotkeyRow( string name, TextBox textBox, Button button ) {
 		public string Name => name;
 		public TextBox TextBox => textBox;
 		public Button Button => button;
-		public Hotkey Hotkey { get; set; } = new( "", "なし" );
+		public List<Hotkey> Hotkeys { get; set; } = [];
 	}
 
 	private HotkeyRow[]? _hotkeyRows;
@@ -38,13 +38,11 @@ public partial class SettingsForm : Form {
 	];
 
 	/// <summary>保存済みの設定で CsWSC が登録しているホットキーです。</summary>
-	private IEnumerable<Hotkey> OwnHotkeys() => _settings == null ? []
-		: [_settings.PlayHotkey, _settings.StopHotkey, _settings.RecordHotkey, _settings.TrayHotkey,
-			.. _settings.LauncherHotkeys()];
+	private IEnumerable<Hotkey> OwnHotkeys() => _settings?.AllHotkeys() ?? [];
 
-	private static void SetHotkey( HotkeyRow row, Hotkey hotkey ) {
-		row.Hotkey = hotkey;
-		row.TextBox.Text = hotkey.ToDisplayString();
+	private static void SetHotkeys( HotkeyRow row, List<Hotkey> hotkeys ) {
+		row.Hotkeys = hotkeys;
+		row.TextBox.Text = Hotkey.ToDisplayString( hotkeys );
 	}
 
 	private void LoadFrom( AppSettings s ) {
@@ -59,8 +57,8 @@ public partial class SettingsForm : Form {
 		trayWhileRunningCheckBox.Checked = s.TrayWhileRunning;
 		launchNoticeCheckBox.Checked = s.HotkeyLaunchNotice;
 
-		var hotkeys = new[] { s.PlayHotkey, s.StopHotkey, s.RecordHotkey, s.TrayHotkey };
-		foreach( var (row, hotkey) in HotkeyRows.Zip( hotkeys ) ) SetHotkey( row, hotkey );
+		var hotkeys = new[] { s.PlayHotkeys, s.StopHotkeys, s.RecordHotkeys, s.TrayHotkeys };
+		foreach( var (row, list) in HotkeyRows.Zip( hotkeys ) ) SetHotkeys( row, [.. list] );
 	}
 
 	private void LowLevelRadioButton_CheckedChanged( object sender, EventArgs e ) => UpdateLowLevelOptions();
@@ -71,10 +69,10 @@ public partial class SettingsForm : Form {
 	}
 
 	private void OkButton_Click( object sender, EventArgs e ) {
-		var hotkeys = HotkeyRows.Select( r => r.Hotkey ).ToArray();
+		var hotkeys = HotkeyRows.Select( r => r.Hotkeys ).ToArray();
 		// ランチャーのホットキーとも重複させない
 		// (ランチャーの枠どうしは対象アプリが違えば同じキーを使えるので、ランチャー側は重複を除いて比べる)
-		var dup = hotkeys.Concat( _settings?.LauncherHotkeys().Where( h => h.Enabled ).Distinct() ?? [] )
+		var dup = hotkeys.SelectMany( h => h ).Concat( _settings?.LauncherHotkeys().Where( h => h.Enabled ).Distinct() ?? [] )
 			.Where( h => h.Enabled ).GroupBy( h => h ).FirstOrDefault( g => g.Count() > 1 );
 		if( dup != null ) {
 			MessageBox.Show( this, $"ホットキー {dup.Key} が重複しています。", "設定", MessageBoxButtons.OK, MessageBoxIcon.Warning );
@@ -91,7 +89,7 @@ public partial class SettingsForm : Form {
 			_settings.TrayOnClose = trayOnCloseCheckBox.Checked;
 			_settings.TrayWhileRunning = trayWhileRunningCheckBox.Checked;
 			_settings.HotkeyLaunchNotice = launchNoticeCheckBox.Checked;
-			(_settings.PlayHotkey, _settings.StopHotkey, _settings.RecordHotkey, _settings.TrayHotkey) =
+			(_settings.PlayHotkeys, _settings.StopHotkeys, _settings.RecordHotkeys, _settings.TrayHotkeys) =
 				(hotkeys[0], hotkeys[1], hotkeys[2], hotkeys[3]);
 			_settings.Save();
 		}

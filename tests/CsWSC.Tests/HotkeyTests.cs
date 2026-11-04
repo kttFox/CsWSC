@@ -80,24 +80,25 @@ public class HotkeyTests {
 	[Fact]
 	public void Settings_JsonRoundTripKeepsHotkeysAndLaunchers() {
 		var launchers = LauncherSlot.Normalize( [
-			new() { Path = @"C:\scripts\a.csws", Hotkey = new Hotkey( "CTRL+ALT", "1" ) { PassThrough = true } },
+			new() { Path = @"C:\scripts\a.csws", Hotkeys = [new Hotkey( "CTRL+ALT", "1" ) { PassThrough = true }] },
 			new() { Title = "==== 見出し ====" },
 			new() { Title = "階層", Children = LauncherSlot.Normalize( [new() { Title = "B", Path = @"C:\scripts\b.csws", SeparateProcess = true }] ) },
 		] );
 		var settings = new AppSettings {
-			StopHotkey = new Hotkey( "", "F10" ) { PassThrough = true },
-			LauncherMenuHotkey = new Hotkey( "CTRL", "SPACE" ),
+			StopHotkeys = [new Hotkey( "", "F10" ) { PassThrough = true }, new Hotkey( "ALT", "F2" )],
+			LauncherMenuHotkeys = [new Hotkey( "CTRL", "SPACE" )],
 			Launchers = launchers,
 		};
 		var back = JsonSerializer.Deserialize<AppSettings>( JsonSerializer.Serialize( settings ) )!;
-		Assert.Equal( new Hotkey( "", "F10" ), back.StopHotkey );
-		Assert.True( back.StopHotkey.PassThrough );
-		Assert.Equal( new Hotkey( "CTRL", "SPACE" ), back.LauncherMenuHotkey );
+		Assert.Equal( [new Hotkey( "", "F10" ), new Hotkey( "ALT", "F2" )], back.StopHotkeys );
+		Assert.True( back.StopHotkeys[0].PassThrough );
+		Assert.False( back.StopHotkeys[1].PassThrough );
+		Assert.Equal( [new Hotkey( "CTRL", "SPACE" )], back.LauncherMenuHotkeys );
 		Assert.Equal( LauncherSlot.Count, back.Launchers.Count );
 		Assert.True( back.Launchers[0].IsScript );
 		Assert.Equal( "a.csws", back.Launchers[0].DisplayName );
-		Assert.Equal( new Hotkey( "CTRL+ALT", "1" ), back.Launchers[0].Hotkey );
-		Assert.True( back.Launchers[0].Hotkey.PassThrough );
+		Assert.Equal( [new Hotkey( "CTRL+ALT", "1" )], back.Launchers[0].Hotkeys );
+		Assert.True( back.Launchers[0].Hotkeys[0].PassThrough );
 		// タイトルだけの枠は見出し行 (スクリプトでも階層でも空でもない)
 		Assert.False( back.Launchers[1].IsScript || back.Launchers[1].IsFolder || back.Launchers[1].IsEmpty );
 		Assert.True( back.Launchers[2].IsFolder );
@@ -114,9 +115,29 @@ public class HotkeyTests {
 		var slots = LauncherSlot.Normalize( back.Launchers );
 		Assert.Equal( LauncherSlot.Count, slots.Count );
 		Assert.True( slots[0].IsScript );
-		Assert.Equal( new Hotkey( "ALT", "F5" ), slots[0].Hotkey );
+		Assert.Equal( [new Hotkey( "ALT", "F5" )], slots[0].Hotkeys );
 		// 未設定 (なし) のメニューのキーは含めない
 		Assert.Equal( [new Hotkey( "ALT", "F5" )], new AppSettings { Launchers = slots }.LauncherHotkeys() );
+	}
+
+	[Fact]
+	public void Settings_ReadsSingleHotkeyFormat() {
+		// 1 つだけ設定できた頃の形式 (配列でなくオブジェクト) も読める。「なし」は取り除く
+		const string json = """{"PlayHotkey":{"Modifier":"CTRL","Key":"F6","PassThrough":true},"StopHotkey":{"Modifier":"","Key":"なし"},"LauncherMenuHotkey":null}""";
+		var back = JsonSerializer.Deserialize<AppSettings>( json )!;
+		Assert.Equal( [new Hotkey( "CTRL", "F6" )], back.PlayHotkeys );
+		Assert.True( back.PlayHotkeys[0].PassThrough );
+		Assert.Empty( back.StopHotkeys );
+		Assert.Empty( back.LauncherMenuHotkeys );
+		// 書いていないものは既定値のまま
+		Assert.Equal( [new Hotkey( "ALT", "F3" )], back.RecordHotkeys );
+	}
+
+	[Fact]
+	public void Hotkey_ToStringOfList() {
+		Assert.Equal( "なし", Hotkey.ToString( [] ) );
+		Assert.Equal( "ALT + F1 / F5", Hotkey.ToString( [new( "ALT", "F1" ), new( "", "なし" ), new( "", "F5" )] ) );
+		Assert.Equal( "ALT + F1 (グローバル), F5 (フック)", Hotkey.ToDisplayString( [new( "ALT", "F1" ), new Hotkey( "", "F5" ) { PassThrough = true }] ) );
 	}
 
 	[Theory]
@@ -139,7 +160,7 @@ public class HotkeyTests {
 	[Fact]
 	public void LauncherSlot_CheckHotkeys_SameLauncher() {
 		var key = new Hotkey( "CTRL", "1" );
-		LauncherSlot Script() => new() { Path = "a.csws", Hotkey = key };
+		LauncherSlot Script() => new() { Path = "a.csws", Hotkeys = [key] };
 		Assert.Null( LauncherSlot.CheckHotkeys( [Script()], [] ) );
 		// 同じランチャーの中で同じキーは NG (階層の中も同じランチャー)
 		Assert.NotNull( LauncherSlot.CheckHotkeys( [Script(), Script()], [] ) );
@@ -161,9 +182,9 @@ public class HotkeyTests {
 	public void LauncherSlot_CheckHotkeys_MixedRegistration( string apps1, string title1, string? apps2, string? title2, bool ok ) {
 		var key = new Hotkey( "CTRL", "1" );
 		LauncherHotkeyEntry Entry( string? apps, string? title, bool passThrough ) {
-			var script = new LauncherSlot { Path = "a.csws", Hotkey = key with { PassThrough = passThrough } };
+			var script = new LauncherSlot { Path = "a.csws", Hotkeys = [key with { PassThrough = passThrough }] };
 			LauncherSlot[] conditions = apps == null ? [] : [new LauncherSlot { TargetApps = apps, TargetTitle = title! }];
-			return new( script.Hotkey, conditions, script, null );
+			return new( script.Hotkeys[0], conditions, script, null );
 		}
 		var error = LauncherSlot.CheckHotkeys( [Entry( apps1, title1, false ), Entry( apps2, title2, true )], [] );
 		Assert.Equal( ok, error == null );
@@ -175,24 +196,27 @@ public class HotkeyTests {
 		var key = new Hotkey( "CTRL", "1" );
 		var notepad = new LauncherSlot {
 			TargetApps = "notepad.exe",
-			Hotkey = menuKey,
-			Children = LauncherSlot.Normalize( [new() { Path = "n.csws", Hotkey = key }] ),
+			Hotkeys = [menuKey],
+			Children = LauncherSlot.Normalize( [new() { Path = "n.csws", Hotkeys = [key] }] ),
 		};
 		var settings = new AppSettings {
-			LauncherMenuHotkey = menuKey,
-			Launchers = LauncherSlot.Normalize( [new() { Path = "a.csws", Hotkey = key }] ),
+			LauncherMenuHotkeys = [menuKey],
+			Launchers = LauncherSlot.Normalize( [new() { Path = "a.csws", Hotkeys = [key, new( "CTRL", "2" )] }] ),
 			LauncherProfiles = [notepad],
 		};
 		var entries = settings.LauncherHotkeyEntries().ToList();
 		// 対象アプリなしのメニュー・枠、対象アプリのメニュー・枠の順。対象アプリのものはその条件が付く
-		Assert.Equal( [0, 0, 1, 1], entries.Select( e => e.Conditions.Length ) );
+		// 複数のキーを設定した枠はキーごとに並ぶ
+		Assert.Equal( [0, 0, 0, 1, 1], entries.Select( e => e.Conditions.Length ) );
 		Assert.NotNull( entries[0].Menu );
-		Assert.Same( notepad, entries[2].Menu );
-		Assert.Equal( "n.csws", entries[3].Script!.Path );
+		Assert.Equal( [new Hotkey( "CTRL", "1" ), new Hotkey( "CTRL", "2" )], entries.Skip( 1 ).Take( 2 ).Select( e => e.Hotkey ) );
+		Assert.Same( entries[1].Script, entries[2].Script );
+		Assert.Same( notepad, entries[3].Menu );
+		Assert.Equal( "n.csws", entries[4].Script!.Path );
 		// 対象アプリが違えば同じキー (メニュー・枠とも) を使える
 		Assert.Null( LauncherSlot.CheckHotkeys( entries, [] ) );
 		// 同じランチャーの中で同じキーは NG
-		notepad.Children[1] = new() { Path = "m.csws", Hotkey = key };
+		notepad.Children[1] = new() { Path = "m.csws", Hotkeys = [key] };
 		Assert.NotNull( LauncherSlot.CheckHotkeys( settings.LauncherHotkeyEntries(), [] ) );
 	}
 
@@ -201,7 +225,7 @@ public class HotkeyTests {
 		var key = new Hotkey( "CTRL", "1" );
 		var notepad = new LauncherSlot { TargetApps = "notepad.exe" };
 		var memo = new LauncherSlot { TargetApps = "notepad.exe", TargetTitle = "メモ" };
-		LauncherSlot Script( string path ) => new() { Path = path, Hotkey = key };
+		LauncherSlot Script( string path ) => new() { Path = path, Hotkeys = [key] };
 		var global = new LauncherHotkeyEntry( key, [], Script( "g.csws" ), null );
 		var byApp = new LauncherHotkeyEntry( key, [notepad], Script( "n.csws" ), null );
 		var byTitle = new LauncherHotkeyEntry( key, [notepad, memo], Script( "m.csws" ), null );
@@ -219,12 +243,12 @@ public class HotkeyTests {
 	[Fact]
 	public void LauncherProfiles_JsonRoundTrip() {
 		var settings = new AppSettings {
-			LauncherProfiles = [new() { TargetApps = "excel", Hotkey = new( "ALT", "Q" ), Children = LauncherSlot.Normalize( [new() { Path = "x.csws" }] ) }],
+			LauncherProfiles = [new() { TargetApps = "excel", Hotkeys = [new( "ALT", "Q" ), new( "ALT", "W" )], Children = LauncherSlot.Normalize( [new() { Path = "x.csws" }] ) }],
 		};
 		var back = JsonSerializer.Deserialize<AppSettings>( JsonSerializer.Serialize( settings ) )!;
 		Assert.Single( back.LauncherProfiles );
 		Assert.Equal( "excel", back.LauncherProfiles[0].ProfileName );
-		Assert.Equal( new Hotkey( "ALT", "Q" ), back.LauncherProfiles[0].Hotkey );
+		Assert.Equal( [new Hotkey( "ALT", "Q" ), new Hotkey( "ALT", "W" )], back.LauncherProfiles[0].Hotkeys );
 		Assert.Equal( "x.csws", back.LauncherProfiles[0].Children![0].Path );
 	}
 

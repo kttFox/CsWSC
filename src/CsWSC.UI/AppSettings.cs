@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CsWSC.UI;
 
@@ -49,10 +50,15 @@ public sealed class AppSettings {
 
 	// ---- ホットキー ----
 
-	public Hotkey PlayHotkey { get; set; } = new( "ALT", "F1" );
-	public Hotkey StopHotkey { get; set; } = new( "ALT", "F2" );
-	public Hotkey RecordHotkey { get; set; } = new( "ALT", "F3" );
-	public Hotkey TrayHotkey { get; set; } = new( "ALT", "F12" );
+	// どれも複数設定できる。JSON の名前は 1 つだけ設定できた頃のまま (HotkeyListConverter で旧形式も読める)
+	[JsonPropertyName( "PlayHotkey" ), JsonConverter( typeof( HotkeyListConverter ) )]
+	public List<Hotkey> PlayHotkeys { get; set; } = [new( "ALT", "F1" )];
+	[JsonPropertyName( "StopHotkey" ), JsonConverter( typeof( HotkeyListConverter ) )]
+	public List<Hotkey> StopHotkeys { get; set; } = [new( "ALT", "F2" )];
+	[JsonPropertyName( "RecordHotkey" ), JsonConverter( typeof( HotkeyListConverter ) )]
+	public List<Hotkey> RecordHotkeys { get; set; } = [new( "ALT", "F3" )];
+	[JsonPropertyName( "TrayHotkey" ), JsonConverter( typeof( HotkeyListConverter ) )]
+	public List<Hotkey> TrayHotkeys { get; set; } = [new( "ALT", "F12" )];
 
 	/// <summary>ホットキーで実行したとき、マウスカーソルの近くに実行したスクリプト名を少しの間表示します。</summary>
 	public bool HotkeyLaunchNotice { get; set; } = true;
@@ -63,7 +69,8 @@ public sealed class AppSettings {
 	/// 対象アプリなしのランチャーのメニューを開くホットキー (どのアプリでも有効。
 	/// 同じキーを対象アプリのランチャーにも設定していれば、前面の窓に合えば対象アプリのランチャーの方を使う) です。
 	/// </summary>
-	public Hotkey LauncherMenuHotkey { get; set; } = new( "", "なし" );
+	[JsonPropertyName( "LauncherMenuHotkey" ), JsonConverter( typeof( HotkeyListConverter ) )]
+	public List<Hotkey> LauncherMenuHotkeys { get; set; } = [];
 
 	/// <summary>対象アプリなしのランチャーの枠 (0〜9, A〜Z の 36 枠。Load で必ず 36 枠にそろえる) です。右クリックメニューにも出します。</summary>
 	public List<LauncherSlot> Launchers { get; set; } = LauncherSlot.Normalize( null );
@@ -77,7 +84,13 @@ public sealed class AppSettings {
 
 	/// <summary>ランチャーのホットキー (メニューを開くキーと各枠のキー) です。</summary>
 	public IEnumerable<LauncherHotkeyEntry> LauncherHotkeyEntries() =>
-		LauncherSlot.HotkeyEntries( LauncherMenuHotkey, Launchers, LauncherProfiles );
+		LauncherSlot.HotkeyEntries( LauncherMenuHotkeys, Launchers, LauncherProfiles );
+
+	/// <summary>再生・停止・記録・トレイのホットキーをすべて並べます。</summary>
+	public IEnumerable<Hotkey> CommandHotkeys() => [.. PlayHotkeys, .. StopHotkeys, .. RecordHotkeys, .. TrayHotkeys];
+
+	/// <summary>CsWSC の設定にあるホットキーすべて (HotkeyDialog の「使用中」判定用) です。</summary>
+	public IEnumerable<Hotkey> AllHotkeys() => [.. CommandHotkeys(), .. LauncherHotkeys()];
 
 	/// <summary>ランチャーのホットキー (HotkeyDialog の「使用中」判定や、再生などのキーとの重複チェック用) です。</summary>
 	public IEnumerable<Hotkey> LauncherHotkeys() => LauncherHotkeyEntries().Select( e => e.Hotkey );

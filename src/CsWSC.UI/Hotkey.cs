@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace CsWSC.UI;
 
 /// <summary>ホットキー (グローバル / フック、修飾キー + キー) です。修飾キーは "CTRL+ALT" のような + 区切り (空ならなし) です。</summary>
@@ -52,4 +55,34 @@ public sealed record Hotkey( string Modifier, string Key ) {
 	public string ToDisplayString() => !Enabled ? "なし" : $"{this} ({( PassThrough ? "フック" : "グローバル" )})";
 
 	public override string ToString() => !Enabled ? "なし" : Modifier == "" ? Key : $"{Modifier} + {Key}";
+
+	/// <summary>複数のホットキーを設定画面に出す文字列 (登録方式付き、「, 」区切り) です。</summary>
+	public static string ToDisplayString( IEnumerable<Hotkey> hotkeys ) => Join( hotkeys, ", ", h => h.ToDisplayString() );
+
+	/// <summary>複数のホットキーを「 / 」区切りの文字列にします。1 つも無ければ「なし」です。</summary>
+	public static string ToString( IEnumerable<Hotkey> hotkeys ) => Join( hotkeys, " / ", h => h.ToString() );
+
+	private static string Join( IEnumerable<Hotkey> hotkeys, string separator, Func<Hotkey, string> format ) =>
+		hotkeys.Where( h => h.Enabled ).Select( format ).DefaultIfEmpty( "なし" ).Aggregate( ( a, b ) => a + separator + b );
+}
+
+/// <summary>
+/// ホットキーの一覧の JSON 変換です。1 つだけ設定できた頃の形式 (配列でなく 1 つのオブジェクト) も読めます。
+/// 無効なホットキー (「なし」) は読み込み時に取り除きます。
+/// </summary>
+public sealed class HotkeyListConverter : JsonConverter<List<Hotkey>> {
+	// null も Read で受けて空の一覧にする (既定では null がそのまま入る)
+	public override bool HandleNull => true;
+
+	public override List<Hotkey> Read( ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options ) {
+		IEnumerable<Hotkey?> list = reader.TokenType switch {
+			JsonTokenType.Null => [],
+			JsonTokenType.StartObject => [JsonSerializer.Deserialize<Hotkey>( ref reader, options )],
+			_ => JsonSerializer.Deserialize<List<Hotkey?>>( ref reader, options ) ?? [],
+		};
+		return [.. list.OfType<Hotkey>().Where( h => h.Enabled )];
+	}
+
+	public override void Write( Utf8JsonWriter writer, List<Hotkey> value, JsonSerializerOptions options ) =>
+		JsonSerializer.Serialize( writer, value, options );
 }

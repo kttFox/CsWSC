@@ -28,7 +28,7 @@ public partial class LauncherForm : Form {
 		listView.ClientSizeChanged += ( _, _ ) => FitColumns();
 		FitColumns();
 		_pages = [
-			new() { Children = LauncherSlot.Normalize( settings.Launchers.Select( s => s.Clone() ).ToList() ), Hotkey = settings.LauncherMenuHotkey },
+			new() { Children = LauncherSlot.Normalize( settings.Launchers.Select( s => s.Clone() ).ToList() ), Hotkeys = [.. settings.LauncherMenuHotkeys] },
 			.. settings.LauncherProfiles.Select( p => {
 				var page = p.Clone();
 				page.Children = LauncherSlot.Normalize( page.Children );
@@ -56,7 +56,7 @@ public partial class LauncherForm : Form {
 
 	/// <summary>保存済みの設定で CsWSC が登録しているホットキー (HotkeyDialog の「使用中」判定用) です。</summary>
 	private IEnumerable<Hotkey> OwnHotkeys() =>
-		[_settings.PlayHotkey, _settings.StopHotkey, _settings.RecordHotkey, _settings.TrayHotkey, .. _settings.LauncherHotkeys()];
+		_settings.AllHotkeys();
 
 	// ---- 対象アプリ ----
 
@@ -91,12 +91,12 @@ public partial class LauncherForm : Form {
 		// 前面の窓に合う最初の対象アプリを使うので、並び順が優先順位になる (対象アプリなしは先頭に固定)
 		profileUpButton.Enabled = _page > 1;
 		profileDownButton.Enabled = _page > 0 && _page < _pages.Count - 1;
-		menuHotkeyTextBox.Text = Page.Hotkey.ToDisplayString();
+		menuHotkeyTextBox.Text = Hotkey.ToDisplayString( Page.Hotkeys );
 		RefreshList( 0 );
 	}
 
 	private void AddProfileButton_Click( object? sender, EventArgs e ) {
-		_pages.Add( new() { Children = LauncherSlot.Normalize( null ), Hotkey = new( "", "なし" ) } );
+		_pages.Add( new() { Children = LauncherSlot.Normalize( null ) } );
 		RefreshProfiles( _pages.Count - 1 );
 		targetAppsTextBox.Focus();
 	}
@@ -158,10 +158,10 @@ public partial class LauncherForm : Form {
 	}
 
 	private void MenuHotkeyButton_Click( object? sender, EventArgs e ) {
-		using var dlg = new HotkeyDialog( $"メニュー - {PageName( _page, Page )}", Page.Hotkey, OwnHotkeys() );
+		using var dlg = new HotkeyListDialog( $"メニュー - {PageName( _page, Page )}", Page.Hotkeys, OwnHotkeys() );
 		if( dlg.ShowDialog( this ) != DialogResult.OK ) return;
-		Page.Hotkey = dlg.Hotkey;
-		menuHotkeyTextBox.Text = Page.Hotkey.ToDisplayString();
+		Page.Hotkeys = dlg.Hotkeys;
+		menuHotkeyTextBox.Text = Hotkey.ToDisplayString( Page.Hotkeys );
 	}
 
 	// ---- 枠 ----
@@ -193,7 +193,7 @@ public partial class LauncherForm : Form {
 			var s = slots[i];
 			string content = s.IsFolder ? "▶ 階層" : s.IsScript ? Path.GetFileName( s.Path ) : s.Title != "" ? "(見出し)" : "";
 			if( s.IsScript && s.SeparateProcess ) content += " [別プロセス]";
-			listView.Items.Add( new ListViewItem( [$"{LauncherSlot.KeyOf( i )}.", s.DisplayName, content, s.IsScript ? s.Hotkey.ToDisplayString() : ""] ) {
+			listView.Items.Add( new ListViewItem( [$"{LauncherSlot.KeyOf( i )}.", s.DisplayName, content, s.IsScript ? Hotkey.ToDisplayString( s.Hotkeys ) : ""] ) {
 				ToolTipText = s.IsScript ? s.Path : "",
 				ForeColor = s.IsScript && !File.Exists( s.Path ) ? Color.Firebrick : SystemColors.WindowText,
 			} );
@@ -277,14 +277,14 @@ public partial class LauncherForm : Form {
 			return;
 		}
 		// 再生・停止・記録・トレイとは重複させない。ランチャーどうしは対象アプリが違えば同じキーを使える
-		var reserved = new[] { _settings.PlayHotkey, _settings.StopHotkey, _settings.RecordHotkey, _settings.TrayHotkey };
-		var entries = LauncherSlot.HotkeyEntries( _pages[0].Hotkey, _pages[0].Children!, _pages.Skip( 1 ) );
+		var reserved = _settings.CommandHotkeys();
+		var entries = LauncherSlot.HotkeyEntries( _pages[0].Hotkeys, _pages[0].Children!, _pages.Skip( 1 ) );
 		if( LauncherSlot.CheckHotkeys( entries, reserved ) is { } error ) {
 			MessageBox.Show( this, error, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning );
 			return;
 		}
 		_settings.Launchers = _pages[0].Children!;
-		_settings.LauncherMenuHotkey = _pages[0].Hotkey;
+		_settings.LauncherMenuHotkeys = _pages[0].Hotkeys;
 		_settings.LauncherProfiles = [.. _pages.Skip( 1 )];
 		_settings.Save();
 		DialogResult = DialogResult.OK;

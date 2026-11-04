@@ -17,6 +17,8 @@ public partial class MainForm : Form {
 	private const int HotkeyPause = 1, HotkeyPlay = 2, HotkeyStop = 3, HotkeyRecord = 4, HotkeyTray = 5;
 	/// <summary>ランチャー (メニューを開くキーと各枠のキー) のホットキー ID は HotkeyLauncherBase + _launcherHotkeyGroups の添字です。</summary>
 	private const int HotkeyLauncherBase = 100;
+	/// <summary>同じ ID に 2 つ目以降のキーを RegisterHotKey するときの ID (HotkeyAliasBase から順に振り、元の ID は _hotkeyAliases に持つ) です。</summary>
+	private const int HotkeyAliasBase = 0x8000;
 
 	/// <summary>設定メニューの「ランチャー」サブメニュー (開くたびに作り直す) です。</summary>
 	private readonly ToolStripMenuItem _launcherMenuItem = new( "ランチャー(&L)" );
@@ -35,6 +37,8 @@ public partial class MainForm : Form {
 	private WinEventProc? _winEventProc; // GC に回収されないよう保持する
 	/// <summary>RegisterHotKey で常時登録したホットキー ID (設定のホットキーと対象アプリなしのランチャー。解除用。Pause は別に解除する。対象アプリ限定の分は _conditionalHotkeyIds) です。</summary>
 	private readonly List<int> _registeredHotkeyIds = [];
+	/// <summary>RegisterHotKey の ID から元のホットキー ID への対応 (1 つの機能に複数のキーを設定した場合) です。</summary>
+	private readonly Dictionary<int, int> _hotkeyAliases = [];
 	/// <summary>PassThrough のホットキー (キーを横取りしないフック方式) です。</summary>
 	private readonly KeyboardHookHotkeys _hotkeys = new();
 
@@ -245,7 +249,7 @@ public partial class MainForm : Form {
 				item.Enabled = item.DropDownItems.Count > 0;
 			} else if( slot.IsScript ) {
 				item.ToolTipText = slot.Path;
-				item.ShortcutKeyDisplayString = slot.Hotkey.Enabled ? slot.Hotkey.ToString() : null;
+				item.ShortcutKeyDisplayString = slot.Hotkeys.Any( h => h.Enabled ) ? Hotkey.ToString( slot.Hotkeys ) : null;
 				// 別プロセスで実行する枠は再生中・記録中でも起動できる
 				item.Enabled = ( idle || slot.SeparateProcess ) && File.Exists( slot.Path );
 				item.Click += ( _, _ ) => _ = RunLauncherAsync( slot );
@@ -450,7 +454,7 @@ public partial class MainForm : Form {
 		var token = _cts.Token;
 		SetRunning( true );
 		_printForm.Reset();
-		editor?.SetStatus( $"再生中… ({_settings.StopHotkey} または Pause キーで停止)" );
+		editor?.SetStatus( $"再生中… ({Hotkey.ToString( _settings.StopHotkeys )} または Pause キーで停止)" );
 
 		string? status = null;
 		try {
@@ -479,7 +483,7 @@ public partial class MainForm : Form {
 	}
 
 	private void SetRunning( bool running ) {
-		SetStopLayout( running, $"停止 ({_settings.StopHotkey})" );
+		SetStopLayout( running, $"停止 ({Hotkey.ToString( _settings.StopHotkeys )})" );
 		UpdateButtons();
 		AutoTray( running );
 		// UWSC と同様、実行中は停止ボタンを最前面に出しておく (操作中の窓からフォーカスは奪わない)
@@ -572,7 +576,7 @@ public partial class MainForm : Form {
 		recordButton.Enabled = !running;
 		recordButton.Image = ButtonImage( recording ? nameof( Properties.Resources.Stop ) : nameof( Properties.Resources.Record ) );
 		editMenuItem.Enabled = hasScript;
-		toolTip.SetToolTip( recordButton, recording ? $"記録終了 ({_settings.RecordHotkey})" : "記録" );
+		toolTip.SetToolTip( recordButton, recording ? $"記録終了 ({Hotkey.ToString( _settings.RecordHotkeys )})" : "記録" );
 		UpdateTitle();
 	}
 
@@ -591,7 +595,7 @@ public partial class MainForm : Form {
 			MessageBox.Show( this, ex.Message, AppName, MessageBoxButtons.OK, MessageBoxIcon.Error );
 			return;
 		}
-		SetStopLayout( true, $"記録終了 ({_settings.RecordHotkey})" );
+		SetStopLayout( true, $"記録終了 ({Hotkey.ToString( _settings.RecordHotkeys )})" );
 		UpdateButtons();
 		AutoTray( true );
 	}
@@ -599,7 +603,7 @@ public partial class MainForm : Form {
 	private void StopRecording() {
 		if( !_recorder.IsRecording ) return;
 		// 記録終了に使ったホットキー (記録・停止・Pause) のキーは末尾から取り除く
-		var trim = new[] { _settings.RecordHotkey, _settings.StopHotkey }
+		var trim = _settings.RecordHotkeys.Concat( _settings.StopHotkeys )
 			.SelectMany( HotkeyKeys )
 			.Append( (int)VK_PAUSE )
 			.ToList();
@@ -663,19 +667,22 @@ public partial class MainForm : Form {
 		// 通常起動中の CsWSC が同じキーを RegisterHotKey していても受けられるよう、設定に関わらずフック方式にする
 		if( _autoRun != null ) {
 			_hotkeys.Add( new Hotkey( "", "PAUSE" ), () => OnHotkey( HotkeyPause ) );
-			var stop = _settings.StopHotkey;
-			if( stop.Enabled && !_hotkeys.Add( stop, () => OnHotkey( HotkeyStop ) ) ) failed.Add( $"{stop} (停止)" );
+			foreach( var stop in _settings.StopHotkeys ) {
+				if( stop.Enabled && !_hotkeys.Add( stop, () => OnHotkey( HotkeyStop ) ) ) failed.Add( $"{stop} (停止)" );
+			}
 			return failed;
 		}
 		RegisterHotKey( Handle, HotkeyPause, 0, VK_PAUSE ); // 非常停止用 (常に有効)
-		foreach( var (id, hotkey, name) in new[]
+		foreach( var (id, hotkeys, name) in new[]
 		{
-			(HotkeyPlay, _settings.PlayHotkey, "再生"),
-			(HotkeyStop, _settings.StopHotkey, "停止"),
-			(HotkeyRecord, _settings.RecordHotkey, "記録"),
-			(HotkeyTray, _settings.TrayHotkey, "タスクトレイに収納"),
+			(HotkeyPlay, _settings.PlayHotkeys, "再生"),
+			(HotkeyStop, _settings.StopHotkeys, "停止"),
+			(HotkeyRecord, _settings.RecordHotkeys, "記録"),
+			(HotkeyTray, _settings.TrayHotkeys, "タスクトレイに収納"),
 		} ) {
-			if( !AddHotkey( id, hotkey ) ) failed.Add( $"{hotkey} ({name})" );
+			foreach( var hotkey in hotkeys ) {
+				if( !AddHotkey( id, hotkey ) ) failed.Add( $"{hotkey} ({name})" );
+			}
 		}
 		// 同じキーでも登録方式 (グローバル / フック) が違えば別に登録する (方式が混ざるのは、対象アプリが重ならない場合だけ)
 		_launcherHotkeyGroups = _settings.LauncherHotkeyEntries()
@@ -753,8 +760,11 @@ public partial class MainForm : Form {
 	private bool AddHotkey( int id, Hotkey hotkey ) {
 		if( !hotkey.Enabled || !hotkey.TryGetVirtualKey( out var vk ) ) return true;
 		if( hotkey.PassThrough ) return _hotkeys.Add( hotkey, () => OnHotkey( id ) );
-		if( !RegisterHotKey( Handle, id, hotkey.ModifierFlags | Hotkey.MOD_NOREPEAT, vk ) ) return false;
-		_registeredHotkeyIds.Add( id );
+		// RegisterHotKey の ID は重複できないので、同じ機能の 2 つ目以降は別の ID で登録する
+		int registerId = _registeredHotkeyIds.Contains( id ) ? HotkeyAliasBase + _hotkeyAliases.Count : id;
+		if( !RegisterHotKey( Handle, registerId, hotkey.ModifierFlags | Hotkey.MOD_NOREPEAT, vk ) ) return false;
+		_registeredHotkeyIds.Add( registerId );
+		if( registerId != id ) _hotkeyAliases[registerId] = id;
 		return true;
 	}
 
@@ -762,6 +772,7 @@ public partial class MainForm : Form {
 		UnregisterHotKey( Handle, HotkeyPause );
 		foreach( var id in _registeredHotkeyIds ) UnregisterHotKey( Handle, id );
 		_registeredHotkeyIds.Clear();
+		_hotkeyAliases.Clear();
 		_hotkeys.Clear();
 		foreach( var hook in new[] { _foregroundHook, _nameChangeHook } ) {
 			if( hook != IntPtr.Zero ) UnhookWinEvent( hook );
@@ -782,7 +793,7 @@ public partial class MainForm : Form {
 	}
 
 	protected override void WndProc( ref Message m ) {
-		if( m.Msg == WM_HOTKEY ) OnHotkey( (int)m.WParam );
+		if( m.Msg == WM_HOTKEY ) OnHotkey( _hotkeyAliases.TryGetValue( (int)m.WParam, out var id ) ? id : (int)m.WParam );
 		// 最小化ボタンは出さないが、タイトルバーの右クリックメニューからは最小化できるようにする
 		if( m.Msg == WM_SYSCOMMAND && ( (int)m.WParam & 0xFFF0 ) == SC_MINIMIZE ) {
 			WindowState = FormWindowState.Minimized;
