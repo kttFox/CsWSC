@@ -8,6 +8,15 @@
 param([switch]$Install)
 
 $ErrorActionPreference = 'Stop'
+
+# 結果を読めるよう、終了前にキー入力を待つ (入力がリダイレクトされているときは待たない)
+function Wait-Key {
+    if ([Console]::IsInputRedirected) { return }
+    Write-Host 'キーを押すと終了します...'
+    [Console]::ReadKey($true) | Out-Null
+}
+trap { Write-Host "エラー: $_" -ForegroundColor Red; Wait-Key; exit 1 }
+
 $root = Split-Path -Parent $PSScriptRoot
 $ext = Join-Path $root 'editors\vscode'
 $serverOut = Join-Path $ext 'server'
@@ -42,3 +51,4 @@ if ($Install) {
     if ($LASTEXITCODE -ne 0) { throw 'VS Code へのインストールに失敗しました' }
     Write-Host 'インストールしました。VS Code を再読み込みしてください (Ctrl+Shift+P → Developer: Reload Window)。'
 }
+Wait-Key

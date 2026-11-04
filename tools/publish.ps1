@@ -8,6 +8,15 @@
   powershell -ExecutionPolicy Bypass -File tools\publish.ps1
 #>
 $ErrorActionPreference = 'Stop'
+
+# 結果を読めるよう、終了前にキー入力を待つ (入力がリダイレクトされているときは待たない)
+function Wait-Key {
+    if ([Console]::IsInputRedirected) { return }
+    Write-Host 'キーを押すと終了します...'
+    [Console]::ReadKey($true) | Out-Null
+}
+trap { Write-Host "エラー: $_" -ForegroundColor Red; Wait-Key; exit 1 }
+
 $root = Split-Path -Parent $PSScriptRoot
 $project = Join-Path $root 'src\CsWSC.UI'
 $artifacts = Join-Path $root 'artifacts'
@@ -25,3 +34,4 @@ foreach ($p in @(
     $mb = (Get-ChildItem $out -Recurse -File | Measure-Object Length -Sum).Sum / 1MB
     Write-Host ("作成しました: {0} ({1:N0} MB)" -f $out, $mb)
 }
+Wait-Key
