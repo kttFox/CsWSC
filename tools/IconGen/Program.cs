@@ -201,17 +201,17 @@ void DrawSettings(Graphics g)
     g.Restore(state);
 }
 
-// アプリ: 青地にロボットの顔 (赤いアンテナ)
+// アプリ: 赤地にロボットの顔 (青いアンテナ)。タスクバーやトレイで他のアプリの青系アイコンに埋もれないよう赤を基調にする
 void DrawAppIcon(Graphics g)
 {
-    var blue = Color.FromArgb(43, 111, 224);
-    using var bg = new SolidBrush(blue);
+    var red = Color.FromArgb(214, 40, 40);
+    using var bg = new SolidBrush(red);
     using (var path = Rounded(new RectangleF(2, 2, 60, 60), 12)) g.FillPath(bg, path);
     // アンテナ
     using var antenna = new Pen(Color.White, 3f);
     g.DrawLine(antenna, 32, 20, 32, 10);
-    using var red = new SolidBrush(Color.FromArgb(230, 50, 40));
-    g.FillEllipse(red, 28.5f, 5.5f, 7, 7);
+    using var blue = new SolidBrush(Color.FromArgb(43, 111, 224));
+    g.FillEllipse(blue, 28.5f, 5.5f, 7, 7);
     // 顔
     using (var path = Rounded(new RectangleF(14, 20, 36, 28), 7)) g.FillPath(Brushes.White, path);
     g.FillEllipse(bg, 21, 29, 8, 8);
