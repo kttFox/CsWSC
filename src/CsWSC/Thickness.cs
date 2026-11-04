@@ -1,7 +1,7 @@
 namespace CsWSC;
 
 /// <summary>
-/// 上下左右それぞれの太さです (ピクセル)。WPF の Thickness と同じように使えます。
+/// 上下左右それぞれの太さです (ピクセル)。Balloon では DPI 100% のときのピクセル数で、拡大率に合わせて太くなります。WPF の Thickness と同じように使えます。
 /// </summary>
 /// <remarks>
 /// int から暗黙に変換できます。<c>2</c> と書くと上下左右すべて 2 です。

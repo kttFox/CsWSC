@@ -351,7 +351,7 @@ BalloonDefaults BalloonDefault { get; }
   - `foreColor` = #000000 (黒)
   - `backColor` = #FFFFE1 (薄い黄色)
   - `borderColor` = null (文字色を半透明にした色)
-  - `borderThickness` = 1 (ピクセル。0 で枠線なし。負の値は 0)  
+  - `borderThickness` = 1 (DPI 100% のときのピクセル数。拡大率に合わせて太くなる。0 で枠線なし。負の値は 0)  
     `new Thickness(左, 上, 右, 下)` で上下左右を別々に指定できます。int を渡すと上下左右が同じ太さです。
   - `opacity` = 1.0 (0.0 = 透明 ～ 1.0 = 不透明。範囲外は丸める)
 - 前面に出ずフォーカスを奪わないので、操作中のウィンドウに影響しません。
@@ -1347,7 +1347,7 @@ void   SetClipboard(string text)
 
 ### Thickness
 
-上下左右それぞれの太さ (ピクセル) です。`Balloon` の `borderThickness` に使います。WPF の `Thickness` と同じ形です。
+上下左右それぞれの太さ (ピクセル) です。`Balloon` の `borderThickness` に使います (DPI 100% のときのピクセル数で、拡大率に合わせて太くなります)。WPF の `Thickness` と同じ形です。
 
 - `new Thickness(左, 上, 右, 下)` / `new Thickness(全部)`
 - int から暗黙に変換できます (`borderThickness: 2` は上下左右すべて 2)。

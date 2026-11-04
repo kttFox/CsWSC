@@ -20,6 +20,7 @@ internal sealed class SelectBoxForm : Form {
 	private int[] _result = [];
 
 	public SelectBoxForm( string message, IReadOnlyList<string> items, SelectKind? single, bool multiAsList ) {
+		SuspendLayout();
 		Text = "CsWSC";
 		FormBorderStyle = FormBorderStyle.FixedDialog;
 		MaximizeBox = MinimizeBox = false;
@@ -110,6 +111,12 @@ internal sealed class SelectBoxForm : Form {
 			AcceptButton = ok;
 			CancelButton = cancel;
 		}
+
+		// 上の大きさ・余白は DPI 100% のときの値。DPI に合わせて拡大する
+		AutoScaleDimensions = new SizeF( 96F, 96F );
+		AutoScaleMode = AutoScaleMode.Dpi;
+		ResumeLayout( false );
+		PerformLayout();
 	}
 
 	/// <summary>選ばれた項目の番号です。キャンセル・タイムアウト時は空です。</summary>

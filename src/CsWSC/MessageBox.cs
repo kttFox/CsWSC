@@ -62,6 +62,7 @@ internal sealed class MessageBoxForm : Form {
 
 	public MessageBoxForm( string message, string? title, MsgButtons buttons, MsgIcon icon ) {
 		_icon = icon;
+		SuspendLayout();
 		Text = title ?? "CsWSC";
 		FormBorderStyle = FormBorderStyle.FixedDialog;
 		MaximizeBox = MinimizeBox = false;
@@ -76,7 +77,7 @@ internal sealed class MessageBoxForm : Form {
 		var layout = new TableLayoutPanel { ColumnCount = 2, RowCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Fill };
 		Controls.Add( layout );
 		if( SystemIconOf( icon ) is { } sys ) {
-			layout.Controls.Add( new PictureBox { Image = sys.ToBitmap(), Size = new Size( 32, 32 ), Margin = new Padding( 0, 0, 12, 0 ) }, 0, 0 );
+			layout.Controls.Add( new PictureBox { Image = sys.ToBitmap(), Size = new Size( 32, 32 ), SizeMode = PictureBoxSizeMode.Zoom, Margin = new Padding( 0, 0, 12, 0 ) }, 0, 0 );
 		}
 		layout.Controls.Add( new Label { Text = message.ReplaceLineEndings( "\r\n" ), AutoSize = true, MinimumSize = new Size( 0, 32 ), MaximumSize = new Size( 600, 0 ), TextAlign = ContentAlignment.MiddleLeft }, 1, 0 );
 
@@ -101,6 +102,12 @@ internal sealed class MessageBoxForm : Form {
 		ActiveControl = first;
 		// はい・いいえ / 中止・再試行・無視 は × ボタンで閉じられない (Win32 の MessageBox と同じ)
 		ControlBox = CancelButton != null;
+
+		// 上の大きさ・余白は DPI 100% のときの値。DPI に合わせて拡大する
+		AutoScaleDimensions = new SizeF( 96F, 96F );
+		AutoScaleMode = AutoScaleMode.Dpi;
+		ResumeLayout( false );
+		PerformLayout();
 	}
 
 	private static (string, MsgResult)[] ButtonsOf( MsgButtons buttons ) => buttons switch {

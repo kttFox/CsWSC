@@ -3,6 +3,7 @@ using System.Drawing.Drawing2D;
 namespace CsWSC;
 
 internal sealed partial class BalloonForm : Form {
+	// DPI 100% のときの大きさ。表示時に DPI に合わせて拡大する
 	private const int TextMargin = 8, TailSize = 12, Radius = 8;
 	private const int WS_EX_TOPMOST = 0x8, WS_EX_TRANSPARENT = 0x20, WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000;
 
@@ -49,26 +50,28 @@ internal sealed partial class BalloonForm : Form {
 		ForeColor = fore;
 		Opacity = opacity;
 
-		var bs = borderThickness;
+		// 余白・しっぽ・枠線は DPI 100% のときの大きさなので、文字 (ポイント指定) と同じ比率で拡大する
+		var bs = Scale( borderThickness );
+		int margin = LogicalToDeviceUnits( TextMargin ), tailSize = LogicalToDeviceUnits( TailSize ), radius = LogicalToDeviceUnits( Radius );
 		var hasTail = tail != BalloonTail.None;
 		var top = tail is BalloonTail.TopLeft or BalloonTail.TopRight;
 		var left = tail is BalloonTail.TopLeft or BalloonTail.BottomLeft;
 
 		// 太い枠線が文字にかからないよう、1px より太くした分だけ余白を広げる
-		static int Pad( int b ) => TextMargin + Math.Max( 0, b - 1 );
+		int Pad( int b ) => margin + Math.Max( 0, b - 1 );
 		var text = TextRenderer.MeasureText( message, Font, Size.Empty, TextFormatFlags.NoPrefix );
 		var body = new Rectangle( 0, 0, text.Width + Pad( bs.Left ) + Pad( bs.Right ), text.Height + Pad( bs.Top ) + Pad( bs.Bottom ) );
 		if( hasTail && top ) {
-			body.Offset( 0, TailSize );
+			body.Offset( 0, tailSize );
 		}
 
 		_textAt = new Point( body.Left + Pad( bs.Left ), body.Top + Pad( bs.Top ) );
-		var size = new Size( body.Width, body.Height + ( hasTail ? TailSize : 0 ) );
+		var size = new Size( body.Width, body.Height + ( hasTail ? tailSize : 0 ) );
 
 		// しっぽの先 (フォーム内座標)
-		var tip = new Point( left ? Radius : size.Width - Radius, top ? 0 : size.Height );
+		var tip = new Point( left ? radius : size.Width - radius, top ? 0 : size.Height );
 
-		var (outer, edges) = BuildOutline( body, hasTail ? tip : null, left, top, bs );
+		var (outer, edges) = BuildOutline( body, hasTail ? tip : null, left, top, bs, tailSize, radius );
 		_outer?.Dispose();
 		_ring?.Dispose();
 		_outer = new GraphicsPath();
@@ -78,7 +81,7 @@ internal sealed partial class BalloonForm : Form {
 			var inner = Inset( outer, edges );
 			// 太すぎてしっぽの内側が潰れたら、しっぽは枠線色で塗りつぶす
 			if( hasTail && ( top ? inner[2].Y >= body.Top + bs.Top : inner[^3].Y <= body.Bottom - bs.Bottom ) ) {
-				var (box, boxEdges) = BuildOutline( body, null, left, top, bs );
+				var (box, boxEdges) = BuildOutline( body, null, left, top, bs, tailSize, radius );
 				inner = Inset( box, boxEdges );
 			}
 
@@ -93,6 +96,12 @@ internal sealed partial class BalloonForm : Form {
 		Visible = true;
 	}
 
+	/// <summary>DPI 100% のときの太さを、この窓の DPI での太さにします。0 でなければ 1 ピクセル以上にします。</summary>
+	private Thickness Scale( Thickness t ) {
+		int S( int v ) => v == 0 ? 0 : Math.Max( 1, LogicalToDeviceUnits( v ) );
+		return new Thickness( S( t.Left ), S( t.Top ), S( t.Right ), S( t.Bottom ) );
+	}
+
 	private static Point KeepOnScreen( Point p, Size size ) {
 		var area = Screen.FromPoint( p ).WorkingArea;
 		return new Point(
@@ -105,7 +114,7 @@ internal sealed partial class BalloonForm : Form {
 	/// しっぽの辺は、しっぽが付いている側 (上か下) の太さです。
 	/// </summary>
 	/// <remarks>しっぽ付きのとき、しっぽの先は上なら 3 番目、下なら後ろから 3 番目の点です。</remarks>
-	private static (PointF[] Points, int[] Edges) BuildOutline( Rectangle r, Point? tip, bool left, bool top, Thickness bs ) {
+	private static (PointF[] Points, int[] Edges) BuildOutline( Rectangle r, Point? tip, bool left, bool top, Thickness bs, int tailSize, int radius ) {
 		// 重ねて描くと境目に線が出るので、しっぽと本体を分けずに 1 本にする
 		var points = new List<PointF>();
 		var edges = new List<int>(); // edges[i] は points[i] から次の点への辺の太さ
@@ -114,18 +123,18 @@ internal sealed partial class BalloonForm : Form {
 			edges.Add( edge );
 		}
 
-		var x1 = left ? r.Left + Radius : r.Right - Radius - TailSize;
+		var x1 = left ? r.Left + radius : r.Right - radius - tailSize;
 		Add( r.Left, r.Top, bs.Top );
 		if( tip is { } p && top ) {
 			Add( x1, r.Top, bs.Top );
 			Add( p.X, p.Y, bs.Top );
-			Add( x1 + TailSize, r.Top, bs.Top );
+			Add( x1 + tailSize, r.Top, bs.Top );
 		}
 
 		Add( r.Right, r.Top, bs.Right );
 		Add( r.Right, r.Bottom, bs.Bottom );
 		if( tip is { } q && !top ) {
-			Add( x1 + TailSize, r.Bottom, bs.Bottom );
+			Add( x1 + tailSize, r.Bottom, bs.Bottom );
 			Add( q.X, q.Y, bs.Bottom );
 			Add( x1, r.Bottom, bs.Bottom );
 		}

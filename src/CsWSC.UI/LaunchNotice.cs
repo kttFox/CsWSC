@@ -24,6 +24,7 @@ internal sealed class LaunchNotice : Form {
 	private RegisteredWaitHandle? _startedWait;
 
 	private LaunchNotice( string message, bool started ) {
+		SuspendLayout();
 		FormBorderStyle = FormBorderStyle.None;
 		ShowInTaskbar = false;
 		StartPosition = FormStartPosition.Manual;
@@ -41,6 +42,12 @@ internal sealed class LaunchNotice : Form {
 			UseMnemonic = false,
 		} );
 		_closeTimer.Tick += ( _, _ ) => Close();
+
+		// 余白は DPI 100% のときの値。DPI に合わせて拡大する
+		AutoScaleDimensions = new SizeF( 96F, 96F );
+		AutoScaleMode = AutoScaleMode.Dpi;
+		ResumeLayout( false );
+		PerformLayout();
 	}
 
 	protected override bool ShowWithoutActivation => true;
@@ -125,8 +132,8 @@ internal sealed class LaunchNotice : Form {
 		var area = Screen.FromPoint( cursor ).WorkingArea;
 		var size = notice.PreferredSize;
 		notice.Location = new Point(
-			Math.Max( area.Left, Math.Min( cursor.X + 16, area.Right - size.Width ) ),
-			Math.Max( area.Top, Math.Min( cursor.Y + 20, area.Bottom - size.Height ) ) );
+			Math.Max( area.Left, Math.Min( cursor.X + notice.LogicalToDeviceUnits( 16 ), area.Right - size.Width ) ),
+			Math.Max( area.Top, Math.Min( cursor.Y + notice.LogicalToDeviceUnits( 20 ), area.Bottom - size.Height ) ) );
 		notice.Show();
 		notice._closeTimer.Start();
 		return notice;

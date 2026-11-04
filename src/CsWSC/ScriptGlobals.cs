@@ -102,7 +102,7 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 	/// <param name="foreColor">文字色です。省略すると <see cref="BalloonDefault"/> の値 (既定は黒) です。</param>
 	/// <param name="backColor">背景色です。省略すると <see cref="BalloonDefault"/> の値 (既定は薄い黄色) です。</param>
 	/// <param name="borderColor">枠線の色です。省略すると <see cref="BalloonDefault"/> の値 (既定は文字色を半透明にした色) です。</param>
-	/// <param name="borderThickness">枠線の太さです (ピクセル)。<c>new Thickness(左, 上, 右, 下)</c> で上下左右を別々に指定できます。int なら上下左右が同じ太さです。0 で枠線なしです。省略すると <see cref="BalloonDefault"/> の値 (既定 1) です。負の値は 0 にします。</param>
+	/// <param name="borderThickness">枠線の太さです (DPI 100% のときのピクセル数で、拡大率に合わせて太くなります)。<c>new Thickness(左, 上, 右, 下)</c> で上下左右を別々に指定できます。int なら上下左右が同じ太さです。0 で枠線なしです。省略すると <see cref="BalloonDefault"/> の値 (既定 1) です。負の値は 0 にします。</param>
 	/// <param name="opacity">不透明度です (0.0 = 透明 ～ 1.0 = 不透明)。省略すると <see cref="BalloonDefault"/> の値 (既定 1.0) です。範囲外は丸めます。</param>
 	/// <returns>表示した吹き出しです。<see cref="Balloon.Update(string?, Point?)"/> で内容・位置を変え、<see cref="Balloon.Close"/> で消します。</returns>
 	/// <remarks>
