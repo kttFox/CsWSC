@@ -27,6 +27,15 @@ public sealed partial class BalloonDefaults {
 	/// <summary>背景色です。既定は薄い黄色です。</summary>
 	public Color BackColor { get; set; } = Color.FromArgb( 255, 255, 225 );
 
+	/// <summary>枠線の色です。null なら文字色を半透明にした色です。既定は null です。</summary>
+	public Color? BorderColor { get; set; }
+
+	/// <summary>
+	/// 枠線の太さです (ピクセル)。<c>new Thickness(左, 上, 右, 下)</c> で上下左右を別々に指定できます。
+	/// int を入れると上下左右が同じ太さです。0 で枠線なしです。既定は 1 です。負の値は Balloon を出すときに 0 にします。
+	/// </summary>
+	public Thickness BorderThickness { get; set; } = 1;
+
 	/// <summary>不透明度です (0.0 = 透明 ～ 1.0 = 不透明)。既定は 1.0 です。範囲外は Balloon を出すときに丸めます。</summary>
 	public double Opacity { get; set; } = 1.0;
 }

@@ -15,7 +15,8 @@ partial class BalloonForm {
 	protected override void Dispose( bool disposing ) {
 		if( disposing ) {
 			components?.Dispose();
-			_path?.Dispose();
+			_outer?.Dispose();
+			_ring?.Dispose();
 		}
 		base.Dispose( disposing );
 	}

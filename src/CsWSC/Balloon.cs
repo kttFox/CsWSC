@@ -20,11 +20,13 @@ public sealed partial class Balloon : IDisposable {
 	private readonly Func<Point, Point> _toScreen, _fromScreen;
 	private readonly BalloonTail _tail;
 	private readonly float _fontSize;
-	private readonly Color _back, _fore;
+	private readonly Color _back, _fore, _border;
+	private readonly Thickness _borderThickness;
 	private readonly double _opacity;
 	private readonly string? _fontName;
 
-	internal Balloon( BalloonHost host, string message, Point target, BalloonTail tail, float fontSize, Color back, Color fore, double opacity, string? fontName,
+	internal Balloon( BalloonHost host, string message, Point target, BalloonTail tail, float fontSize, Color back, Color fore,
+		Color border, Thickness borderThickness, double opacity, string? fontName,
 		Func<Point, Point> toScreen, Func<Point, Point> fromScreen ) {
 		_host = host;
 		_toScreen = toScreen;
@@ -35,6 +37,8 @@ public sealed partial class Balloon : IDisposable {
 		_fontSize = fontSize;
 		_back = back;
 		_fore = fore;
+		_border = border;
+		_borderThickness = borderThickness;
 		_opacity = opacity;
 		_fontName = fontName;
 		_form = host.CreateForm();
@@ -81,7 +85,7 @@ public sealed partial class Balloon : IDisposable {
 
 	private void Refresh() {
 		var (message, target) = (_message, _target);
-		_host.Run( _form, () => _form.Display( message, target, _tail, _fontSize, _back, _fore, _opacity, _fontName ) );
+		_host.Run( _form, () => _form.Display( message, target, _tail, _fontSize, _back, _fore, _border, _borderThickness, _opacity, _fontName ) );
 	}
 }
 

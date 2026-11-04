@@ -331,10 +331,12 @@ Speak("", interrupt: true);	// 読み上げを止める
 ```csharp
 Balloon Balloon(string message, [Point point], [BalloonTail tail = None],
                  [float? fontSize], [string? fontName], [Color? foreColor],
-                 [Color? backColor], [double? opacity])
+                 [Color? backColor], [Color? borderColor],
+                 [Thickness? borderThickness], [double? opacity])
 Balloon Balloon(string message, int x, int y, [BalloonTail tail = None],
                  [float? fontSize], [string? fontName], [Color? foreColor],
-                 [Color? backColor], [double? opacity])
+                 [Color? backColor], [Color? borderColor],
+                 [Thickness? borderThickness], [double? opacity])
 void BalloonClear()
 BalloonDefaults BalloonDefault { get; }
 ```
@@ -343,11 +345,14 @@ BalloonDefaults BalloonDefault { get; }
 
 - 呼ぶたびに新しい吹き出しが増えます。複数を同時に表示できます。
 - 位置を省略すると、左上 (0, 0) に表示します (`MouseOrigin` 指定時はその基準の左上)。しっぽの先が指定位置を指します。
-- 既定値 (フォント・色・不透明度) の変更は `BalloonDefault` を使用します。
+- 既定値 (フォント・色・枠線・不透明度) の変更は `BalloonDefault` を使用します。
   - `fontSize` = 10
   - `fontName` = システムのメッセージ用フォント (例: `"メイリオ"`。見つからない場合は代替フォント)
   - `foreColor` = #000000 (黒)
   - `backColor` = #FFFFE1 (薄い黄色)
+  - `borderColor` = null (文字色を半透明にした色)
+  - `borderThickness` = 1 (ピクセル。0 で枠線なし。負の値は 0)  
+    `new Thickness(左, 上, 右, 下)` で上下左右を別々に指定できます。int を渡すと上下左右が同じ太さです。
   - `opacity` = 1.0 (0.0 = 透明 ～ 1.0 = 不透明。範囲外は丸める)
 - 前面に出ずフォーカスを奪わないので、操作中のウィンドウに影響しません。
 - 返り値の `Balloon` で操作します。
@@ -369,6 +374,8 @@ b.Close();
 
 var a = Balloon("ここ", new Point(600, 300), BalloonTail.BottomRight, 14, backColor: Color.LightBlue);
 var c = Balloon("そこ", 900, 300, opacity: 0.6);	// 半透明
+Balloon("枠", 600, 500, borderColor: Color.Red, borderThickness: 3);
+Balloon("下だけ太い枠", 600, 600, borderThickness: new Thickness(1, 1, 1, 4));
 BalloonClear();										// 全部消す
 
 using (Balloon("この間だけ表示")) { Sleep(2000); }
@@ -1337,6 +1344,14 @@ void   SetClipboard(string text)
 ### SliderInfo
 
 `Value` `Minimum` `Maximum` `SmallChange` `LargeChange` (すべて double)
+
+### Thickness
+
+上下左右それぞれの太さ (ピクセル) です。`Balloon` の `borderThickness` に使います。WPF の `Thickness` と同じ形です。
+
+- `new Thickness(左, 上, 右, 下)` / `new Thickness(全部)`
+- int から暗黙に変換できます (`borderThickness: 2` は上下左右すべて 2)。
+- `Left` `Top` `Right` `Bottom` (すべて int)
 
 ### MsgButtons
 

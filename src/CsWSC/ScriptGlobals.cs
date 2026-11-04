@@ -80,7 +80,7 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 	private readonly BalloonHost _balloons = new();
 
 	/// <summary>
-	/// <see cref="Balloon(string, Point, BalloonTail, float?, string?, Color?, Color?, double?)"/> で引数を省略したときの初期値です。
+	/// <see cref="Balloon(string, Point, BalloonTail, float?, string?, Color?, Color?, Color?, Thickness?, double?)"/> で引数を省略したときの初期値です。
 	/// </summary>
 	/// <example>
 	/// <code>
@@ -101,6 +101,8 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 	/// <param name="fontName">フォント名です (例: "メイリオ")。省略すると <see cref="BalloonDefault"/> の値 (既定はシステムのメッセージ用フォント) です。見つからない場合は代替フォントになります。</param>
 	/// <param name="foreColor">文字色です。省略すると <see cref="BalloonDefault"/> の値 (既定は黒) です。</param>
 	/// <param name="backColor">背景色です。省略すると <see cref="BalloonDefault"/> の値 (既定は薄い黄色) です。</param>
+	/// <param name="borderColor">枠線の色です。省略すると <see cref="BalloonDefault"/> の値 (既定は文字色を半透明にした色) です。</param>
+	/// <param name="borderThickness">枠線の太さです (ピクセル)。<c>new Thickness(左, 上, 右, 下)</c> で上下左右を別々に指定できます。int なら上下左右が同じ太さです。0 で枠線なしです。省略すると <see cref="BalloonDefault"/> の値 (既定 1) です。負の値は 0 にします。</param>
 	/// <param name="opacity">不透明度です (0.0 = 透明 ～ 1.0 = 不透明)。省略すると <see cref="BalloonDefault"/> の値 (既定 1.0) です。範囲外は丸めます。</param>
 	/// <returns>表示した吹き出しです。<see cref="Balloon.Update(string?, Point?)"/> で内容・位置を変え、<see cref="Balloon.Close"/> で消します。</returns>
 	/// <remarks>
@@ -122,20 +124,24 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 	/// </code>
 	/// </example>
 	public Balloon Balloon( string message, Point point = default, BalloonTail tail = BalloonTail.None,
-		float? fontSize = null, string? fontName = null, Color? foreColor = null, Color? backColor = null, double? opacity = null ) {
+		float? fontSize = null, string? fontName = null, Color? foreColor = null, Color? backColor = null,
+		Color? borderColor = null, Thickness? borderThickness = null, double? opacity = null ) {
 		Check();
 		ArgumentNullException.ThrowIfNull( message );
 		var pos = ToScreen( point );
 		var d = BalloonDefault;
+		var fore = foreColor ?? d.ForeColor;
 		return new Balloon( _balloons, BalloonHost.Normalize( message ), pos, tail, fontSize ?? d.FontSize,
-			backColor ?? d.BackColor, foreColor ?? d.ForeColor, Math.Clamp( opacity ?? d.Opacity, 0.0, 1.0 ), fontName ?? d.FontName,
+			backColor ?? d.BackColor, fore, borderColor ?? d.BorderColor ?? Color.FromArgb( 160, fore ), ( borderThickness ?? d.BorderThickness ).NonNegative(),
+			Math.Clamp( opacity ?? d.Opacity, 0.0, 1.0 ), fontName ?? d.FontName,
 			ToScreen, FromScreen );
 	}
 
-	/// <summary><see cref="Balloon(string, Point, BalloonTail, float?, string?, Color?, Color?, double?)"/> の座標を x, y で指定する版です。</summary>
+	/// <summary><see cref="Balloon(string, Point, BalloonTail, float?, string?, Color?, Color?, Color?, Thickness?, double?)"/> の座標を x, y で指定する版です。</summary>
 	public Balloon Balloon( string message, int x, int y, BalloonTail tail = BalloonTail.None,
-		float? fontSize = null, string? fontName = null, Color? foreColor = null, Color? backColor = null, double? opacity = null )
-		=> Balloon( message, new Point( x, y ), tail, fontSize, fontName, foreColor, backColor, opacity );
+		float? fontSize = null, string? fontName = null, Color? foreColor = null, Color? backColor = null,
+		Color? borderColor = null, Thickness? borderThickness = null, double? opacity = null )
+		=> Balloon( message, new Point( x, y ), tail, fontSize, fontName, foreColor, backColor, borderColor, borderThickness, opacity );
 
 	/// <summary>
 	/// 表示中の吹き出しをすべて消します。

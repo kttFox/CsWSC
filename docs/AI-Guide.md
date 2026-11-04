@@ -46,10 +46,10 @@ int     SelectBox(SelectKind kind, string message, IReadOnlyList<string> items, 
 int[]   SelectBoxMulti(string message, IReadOnlyList<string> items, [bool asList], [int timeoutMs])
 string? PopupMenu(IReadOnlyList<string> items, [Point? point])             // "-" は区切り、"<<" はサブメニュー。(items, x, y) 版もある
 void    Speak(string text, [bool async], [bool interrupt], [int rate], [int volume])
-Balloon Balloon(string message, [Point point], [BalloonTail tail], [float? fontSize], [string? fontName], [Color? foreColor], [Color? backColor], [double? opacity])   // (message, x, y, ...) 版もある。point 省略で (0, 0)、ほかの省略した値は BalloonDefault の値。返り値の Close() / using で消す
+Balloon Balloon(string message, [Point point], [BalloonTail tail], [float? fontSize], [string? fontName], [Color? foreColor], [Color? backColor], [Color? borderColor], [Thickness? borderThickness], [double? opacity])   // (message, x, y, ...) 版もある。borderThickness は int (上下左右同じ) か new Thickness(左, 上, 右, 下)。0 で枠線なし。point 省略で (0, 0)、ほかの省略した値は BalloonDefault の値。返り値の Close() / using で消す
 Balloon balloon.Update([string? message], [Point? point])     // 表示中の吹き出しの文言・位置を変える。(message, x, y) 版もある。Message / Target / IsClosed で状態を取得
 void    BalloonClear()
-BalloonDefaults BalloonDefault   // .FontSize / .FontName / .ForeColor / .BackColor / .Opacity で Balloon の初期値を設定 (実行ごとにリセット)。大文字の別名 BALLOONDEFAULT.FONTSIZE なども可
+BalloonDefaults BalloonDefault   // .FontSize / .FontName / .ForeColor / .BackColor / .Opacity / .BorderColor / .BorderThickness で Balloon の初期値を設定 (実行ごとにリセット)。大文字の別名 BALLOONDEFAULT.FONTSIZE なども可
 ```
 
 ### マウス
@@ -174,6 +174,7 @@ int     ProcessId                            // 実行中のプロセス ID (同
 - `MsgIcon`: `None` `Information` `Warning` `Error` `Question`
 - `MsgResult`: `None` `OK` `Cancel` `Yes` `No` `Retry` `Abort` `Ignore` `Timeout` (時間切れ)
 - `TransColor`: `None` `TopLeft` `TopRight` `BottomLeft` `BottomRight` (透過色にする隅の色。UWSC の 1〜4)
+- `Thickness` (構造体): `new Thickness(left, top, right, bottom)` / `new Thickness(uniform)`。int から暗黙変換される。Balloon の borderThickness に使う
 
 ## よくある間違い
 

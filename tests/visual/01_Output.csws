@@ -64,6 +64,14 @@ using (Balloon("大きい白文字・紺背景", new Point(300, 300), BalloonTai
 Step("Balloon: x, y 版・fontName (MS ゴシック)・opacity 0.5 (半透明)");
 using (Balloon("x,y 版 / MS ゴシック / 半透明", 300, 300, BalloonTail.None, 16, fontName: "MS Gothic", opacity: 0.5)) Sleep(2000);
 
+Step("Balloon: 枠線 (赤 4px のしっぽ付き・枠線なし・上下左右別)");
+var bb1 = Balloon("赤 4px の枠線\n(マウス位置を指す)", new Point(p.X+20, p.Y+20), BalloonTail.TopLeft, borderColor: Color.Red, borderThickness: 4);
+var bb2 = Balloon("枠線なし", 300, 300, borderThickness: 0);
+var bb3 = Balloon("左 1・上 2・右 4・下 8\n(しっぽは下側の太さ)", new Point(600, 400), BalloonTail.BottomRight,
+	borderColor: Color.Navy, borderThickness: new Thickness(1, 2, 4, 8));
+Sleep(2500);
+bb1.Close(); bb2.Close(); bb3.Close();
+
 Step("Balloon: 複数同時に表示し、1 つずつ消す");
 var b1 = Balloon("1 つ目", new Point(300, 200));
 var b2 = Balloon("2 つ目", new Point(500, 200), BalloonTail.TopRight, 10, backColor: Color.LightGreen);

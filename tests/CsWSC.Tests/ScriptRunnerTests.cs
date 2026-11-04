@@ -31,7 +31,13 @@ public class ScriptRunnerTests {
 			BalloonDefault.ForeColor = Color.White;
 			BalloonDefault.BackColor = Color.Navy;
 			BalloonDefault.Opacity = 0.8;
-			Balloon b = Balloon("x", fontSize: 20);
+			BalloonDefault.BorderColor = Color.Red;
+			BalloonDefault.BorderThickness = 3;
+			Balloon b = Balloon("x", fontSize: 20, borderColor: Color.Blue, borderThickness: 0);
+			BALLOONDEFAULT.BORDERCOLOR = null;
+			BALLOONDEFAULT.BORDERTHICKNESS = 1;
+			BalloonDefault.BorderThickness = new Thickness(1, 2, 3, 4);
+			Balloon("y", 0, 0, borderThickness: new Thickness(2));
 			BALLOONDEFAULT.FONTSIZE = 12;
 			BALLOONDEFAULT.FONTNAME = null;
 			BALLOONDEFAULT.FORECOLOR = Color.Black;
