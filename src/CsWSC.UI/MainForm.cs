@@ -467,7 +467,8 @@ public partial class MainForm : Form {
 			status = "エラー";
 			MessageBox.Show( this, ex.Message, $"{AppName} - エラー", MessageBoxButtons.OK, MessageBoxIcon.Error );
 			if( ex.Line > 0 ) {
-				editor ??= path != null ? OpenEditor( path )
+				// 開いていないエディタは設定で有効なときだけ開く
+				if( _settings.OpenEditorOnError ) editor ??= path != null ? OpenEditor( path )
 					: source == _recordedSource ? OpenEditor( null, source ) : null;
 				editor?.GoToLine( ex.Line );
 			}

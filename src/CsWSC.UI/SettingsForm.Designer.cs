@@ -51,6 +51,7 @@ partial class SettingsForm {
 		this.trayOnCloseCheckBox = new CheckBox();
 		this.trayWhileRunningCheckBox = new CheckBox();
 		this.launchNoticeCheckBox = new CheckBox();
+		this.openEditorOnErrorCheckBox = new CheckBox();
 		this.recordGroupBox.SuspendLayout();
 		this.hotkeyGroupBox.SuspendLayout();
 		this.trayGroupBox.SuspendLayout();
@@ -276,10 +277,10 @@ partial class SettingsForm {
 		// 
 		// okButton
 		// 
-		this.okButton.Location = new Point( 108, 494 );
+		this.okButton.Location = new Point( 108, 518 );
 		this.okButton.Name = "okButton";
 		this.okButton.Size = new Size( 92, 28 );
-		this.okButton.TabIndex = 3;
+		this.okButton.TabIndex = 4;
 		this.okButton.Text = "OK";
 		this.okButton.UseVisualStyleBackColor = true;
 		this.okButton.Click += this.OkButton_Click;
@@ -287,10 +288,10 @@ partial class SettingsForm {
 		// cancelButton
 		// 
 		this.cancelButton.DialogResult = DialogResult.Cancel;
-		this.cancelButton.Location = new Point( 206, 494 );
+		this.cancelButton.Location = new Point( 206, 518 );
 		this.cancelButton.Name = "cancelButton";
 		this.cancelButton.Size = new Size( 92, 28 );
-		this.cancelButton.TabIndex = 4;
+		this.cancelButton.TabIndex = 5;
 		this.cancelButton.Text = "キャンセル";
 		this.cancelButton.UseVisualStyleBackColor = true;
 		// 
@@ -336,16 +337,27 @@ partial class SettingsForm {
 		this.trayWhileRunningCheckBox.Text = "再生・記録中はタスクトレイに収納する";
 		this.trayWhileRunningCheckBox.UseVisualStyleBackColor = true;
 		// 
+		// openEditorOnErrorCheckBox
+		// 
+		this.openEditorOnErrorCheckBox.AutoSize = true;
+		this.openEditorOnErrorCheckBox.Location = new Point( 20, 490 );
+		this.openEditorOnErrorCheckBox.Name = "openEditorOnErrorCheckBox";
+		this.openEditorOnErrorCheckBox.Size = new Size( 233, 19 );
+		this.openEditorOnErrorCheckBox.TabIndex = 3;
+		this.openEditorOnErrorCheckBox.Text = "スクリプトのエラー時にエディタで該当行を開く(&E)";
+		this.openEditorOnErrorCheckBox.UseVisualStyleBackColor = true;
+		// 
 		// SettingsForm
 		// 
 		this.AcceptButton = this.okButton;
 		this.AutoScaleDimensions = new SizeF( 7F, 15F );
 		this.AutoScaleMode = AutoScaleMode.Font;
 		this.CancelButton = this.cancelButton;
-		this.ClientSize = new Size( 310, 532 );
+		this.ClientSize = new Size( 310, 556 );
 		this.Controls.Add( this.recordGroupBox );
 		this.Controls.Add( this.hotkeyGroupBox );
 		this.Controls.Add( this.trayGroupBox );
+		this.Controls.Add( this.openEditorOnErrorCheckBox );
 		this.Controls.Add( this.okButton );
 		this.Controls.Add( this.cancelButton );
 		this.Font = new Font( "Yu Gothic UI", 9F );
@@ -395,4 +407,5 @@ partial class SettingsForm {
 	private CheckBox trayOnCloseCheckBox;
 	private CheckBox trayWhileRunningCheckBox;
 	private CheckBox launchNoticeCheckBox;
+	private CheckBox openEditorOnErrorCheckBox;
 }

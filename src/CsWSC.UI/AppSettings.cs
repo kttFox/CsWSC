@@ -63,6 +63,9 @@ public sealed class AppSettings {
 	/// <summary>ホットキーで実行したとき、マウスカーソルの近くに実行したスクリプト名を少しの間表示します。</summary>
 	public bool HotkeyLaunchNotice { get; set; } = true;
 
+	/// <summary>スクリプトのエラー時に、エディタが開いていなければ開いて該当行を示します。</summary>
+	public bool OpenEditorOnError { get; set; }
+
 	// ---- ランチャー ----
 
 	/// <summary>

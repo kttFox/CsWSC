@@ -56,6 +56,7 @@ public partial class SettingsForm : Form {
 		trayOnCloseCheckBox.Checked = s.TrayOnClose;
 		trayWhileRunningCheckBox.Checked = s.TrayWhileRunning;
 		launchNoticeCheckBox.Checked = s.HotkeyLaunchNotice;
+		openEditorOnErrorCheckBox.Checked = s.OpenEditorOnError;
 
 		var hotkeys = new[] { s.PlayHotkeys, s.StopHotkeys, s.RecordHotkeys, s.TrayHotkeys };
 		foreach( var (row, list) in HotkeyRows.Zip( hotkeys ) ) SetHotkeys( row, [.. list] );
@@ -89,6 +90,7 @@ public partial class SettingsForm : Form {
 			_settings.TrayOnClose = trayOnCloseCheckBox.Checked;
 			_settings.TrayWhileRunning = trayWhileRunningCheckBox.Checked;
 			_settings.HotkeyLaunchNotice = launchNoticeCheckBox.Checked;
+			_settings.OpenEditorOnError = openEditorOnErrorCheckBox.Checked;
 			(_settings.PlayHotkeys, _settings.StopHotkeys, _settings.RecordHotkeys, _settings.TrayHotkeys) =
 				(hotkeys[0], hotkeys[1], hotkeys[2], hotkeys[3]);
 			_settings.Save();
