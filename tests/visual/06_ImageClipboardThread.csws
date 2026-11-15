@@ -8,7 +8,7 @@ void Step(string s)
 {
     Print("▶ " + s);
     if (stepBalloon is { IsClosed: false }) stepBalloon.Update(s);
-    else stepBalloon = Balloon(s, new Point(20, 20), BalloonTail.None, 12);
+    else stepBalloon = Balloon(s, new Point(20, 20), 12);
     Sleep(1500);
 }
 void Check(string name, bool ok) => Print($"  [{(ok ? "OK" : "NG")}] {name}");
@@ -56,7 +56,7 @@ foreach (var t in new[] { TransColor.TopLeft, TransColor.BottomRight })
 Step("CheckImages: 同じ小画像を 3 つ並べて表示し、全部見つける");
 var dot = Path.Combine(dir, "dot.png");
 var marks = new List<Balloon>();
-foreach (var x in new[] { 300, 500, 700 }) marks.Add(Balloon("★CsWSC★", x, 500, BalloonTail.None, 14, backColor: Color.Yellow));
+foreach (var x in new[] { 300, 500, 700 }) marks.Add(Balloon("★CsWSC★", x, 500, 14, backColor: Color.Yellow));
 Sleep(500);
 SaveImage(dot, new Rectangle(302, 502, 40, 14));
 var all = CheckImages(dot, new Rectangle(250, 450, 600, 150), tolerance: 10);
@@ -107,7 +107,7 @@ var sw = System.Diagnostics.Stopwatch.StartNew();
 while (sw.Elapsed.TotalSeconds < 10)
 {
     Cancellation.ThrowIfCancellationRequested();
-    Balloon($"重いループ中… {10 - sw.Elapsed.TotalSeconds:F0} 秒\nPause キーで停止", new Point(20, 20), BalloonTail.None, 12);
+    Balloon($"重いループ中… {10 - sw.Elapsed.TotalSeconds:F0} 秒\nPause キーで停止", new Point(20, 20), 12);
     System.Threading.Thread.Sleep(200);
 }
 

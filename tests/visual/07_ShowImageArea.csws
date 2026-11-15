@@ -7,7 +7,7 @@ void Step(string s)
 {
     Print("▶ " + s);
     if (stepBalloon is { IsClosed: false }) stepBalloon.Update(s);
-    else stepBalloon = Balloon(s, new Point(20, 20), BalloonTail.None, 12);
+    else stepBalloon = Balloon(s, new Point(20, 20), 12);
     Sleep(1500);
 }
 void Check(string name, bool ok) => Print($"  [{(ok ? "OK" : "NG")}] {name}");

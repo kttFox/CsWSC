@@ -6,6 +6,11 @@ namespace CsWSC;
 public enum BalloonTail { None, TopLeft, TopRight, BottomLeft, BottomRight }
 
 /// <summary>
+/// しっぽなしの吹き出しで、指定座標を吹き出しのどこに合わせるかです。しっぽ付きのときは使いません (しっぽの先が指定座標を指します)。
+/// </summary>
+public enum BalloonAnchor { TopLeft, TopRight, BottomLeft, BottomRight, Center }
+
+/// <summary>
 /// 表示中の吹き出しです。<c>Balloon(...)</c> が返します。複数同時に表示できます。
 /// </summary>
 /// <remarks>
@@ -19,6 +24,7 @@ public sealed partial class Balloon : IDisposable {
 						   // MouseOrigin の基準と画面座標の変換。呼ぶたびにその時点の基準を使う
 	private readonly Func<Point, Point> _toScreen, _fromScreen;
 	private readonly BalloonTail _tail;
+	private readonly BalloonAnchor _anchor;
 	private readonly float _fontSize;
 	private readonly Color _back, _fore, _border;
 	private readonly Thickness _borderThickness;
@@ -27,8 +33,9 @@ public sealed partial class Balloon : IDisposable {
 
 	internal Balloon( BalloonHost host, string message, Point target, BalloonTail tail, float fontSize, Color back, Color fore,
 		Color border, Thickness borderThickness, double opacity, string? fontName,
-		Func<Point, Point> toScreen, Func<Point, Point> fromScreen ) {
+		BalloonAnchor anchor, Func<Point, Point> toScreen, Func<Point, Point> fromScreen ) {
 		_host = host;
+		_anchor = anchor;
 		_toScreen = toScreen;
 		_fromScreen = fromScreen;
 		_message = message;
@@ -48,7 +55,7 @@ public sealed partial class Balloon : IDisposable {
 	/// <summary>表示中の文字列です。</summary>
 	public string Message => _message;
 
-	/// <summary>しっぽの先が指す位置です (画面座標。MouseOrigin 指定時はその基準)。</summary>
+	/// <summary>しっぽの先が指す位置 (しっぽなしなら原点の位置) です (画面座標。MouseOrigin 指定時はその基準)。</summary>
 	public Point Target => _fromScreen( _target );
 
 	/// <summary><see cref="Close"/> 済み、またはスクリプト終了で消えていれば true です。</summary>
@@ -58,7 +65,7 @@ public sealed partial class Balloon : IDisposable {
 	/// 文字列や位置を変えて表示し直します。省略した値はそのままです。
 	/// </summary>
 	/// <param name="message">新しい文字列です。省略すると変えません。</param>
-	/// <param name="point">しっぽの先が指す座標です (画面座標。MouseOrigin 指定時はその基準)。省略すると変えません。</param>
+	/// <param name="point">しっぽの先が指す座標 (しっぽなしなら原点の座標) です (画面座標。MouseOrigin 指定時はその基準)。省略すると変えません。</param>
 	/// <returns>この吹き出し自身です。</returns>
 	public Balloon Update( string? message = null, Point? point = null ) {
 		ScriptStop.Check();
@@ -85,7 +92,7 @@ public sealed partial class Balloon : IDisposable {
 
 	private void Refresh() {
 		var (message, target) = (_message, _target);
-		_host.Run( _form, () => _form.Display( message, target, _tail, _fontSize, _back, _fore, _border, _borderThickness, _opacity, _fontName ) );
+		_host.Run( _form, () => _form.Display( message, target, _tail, _anchor, _fontSize, _back, _fore, _border, _borderThickness, _opacity, _fontName ) );
 	}
 }
 

@@ -32,7 +32,7 @@ internal sealed partial class BalloonForm : Form {
 		}
 	}
 
-	public void Display( string message, Point target, BalloonTail tail, float fontSize, Color back, Color fore,
+	public void Display( string message, Point target, BalloonTail tail, BalloonAnchor anchor, float fontSize, Color back, Color fore,
 		Color border, Thickness borderThickness, double opacity, string? fontName ) {
 		_message = message;
 		// Font の setter は古いフォントを解放しないので、差し替えた後に自分で解放する
@@ -90,7 +90,13 @@ internal sealed partial class BalloonForm : Form {
 			_ring.AddPolygon( inner );
 		}
 
-		var location = hasTail ? new Point( target.X - tip.X, target.Y - tip.Y ) : target;
+		var location = hasTail ? new Point( target.X - tip.X, target.Y - tip.Y ) : anchor switch {
+			BalloonAnchor.TopRight => new Point( target.X - size.Width, target.Y ),
+			BalloonAnchor.BottomLeft => new Point( target.X, target.Y - size.Height ),
+			BalloonAnchor.BottomRight => new Point( target.X - size.Width, target.Y - size.Height ),
+			BalloonAnchor.Center => new Point( target.X - size.Width / 2, target.Y - size.Height / 2 ),
+			_ => target,
+		};
 		Bounds = new Rectangle( KeepOnScreen( location, size ), size );
 		Invalidate();
 		Visible = true;

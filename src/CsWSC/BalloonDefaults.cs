@@ -38,4 +38,7 @@ public sealed partial class BalloonDefaults {
 
 	/// <summary>不透明度です (0.0 = 透明 ～ 1.0 = 不透明)。既定は 1.0 です。範囲外は Balloon を出すときに丸めます。</summary>
 	public double Opacity { get; set; } = 1.0;
+
+	/// <summary>しっぽなしのとき、指定座標を吹き出しのどこに合わせるかです。既定は <see cref="BalloonAnchor.TopLeft"/> です。</summary>
+	public BalloonAnchor Anchor { get; set; } = BalloonAnchor.TopLeft;
 }

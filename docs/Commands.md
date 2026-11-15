@@ -329,11 +329,11 @@ Speak("", interrupt: true);	// 読み上げを止める
 ### Balloon
 
 ```csharp
-Balloon Balloon(string message, [Point point], [BalloonTail tail = None],
+Balloon Balloon(string message, [BalloonTail tail | BalloonAnchor anchor], [Point point],
                  [float? fontSize], [string? fontName], [Color? foreColor],
                  [Color? backColor], [Color? borderColor],
                  [Thickness? borderThickness], [double? opacity])
-Balloon Balloon(string message, int x, int y, [BalloonTail tail = None],
+Balloon Balloon(string message, [BalloonTail tail | BalloonAnchor anchor], int x, int y,
                  [float? fontSize], [string? fontName], [Color? foreColor],
                  [Color? backColor], [Color? borderColor],
                  [Thickness? borderThickness], [double? opacity])
@@ -344,8 +344,13 @@ BalloonDefaults BalloonDefault { get; }
 吹き出しを表示し、その吹き出し (`Balloon`) を返します。UWSC: `FUKIDASI` `BALLOON`
 
 - 呼ぶたびに新しい吹き出しが増えます。複数を同時に表示できます。
-- 位置を省略すると、左上 (0, 0) に表示します (`MouseOrigin` 指定時はその基準の左上)。しっぽの先が指定位置を指します。
-- 既定値 (フォント・色・枠線・不透明度) の変更は `BalloonDefault` を使用します。
+- 位置を省略すると、左上 (0, 0) に表示します (`MouseOrigin` 指定時はその基準の左上)。
+- 2 番目の引数で、しっぽか原点のどちらかを指定できます (両方は指定できません)。
+  - `tail`: しっぽを付けます。しっぽの先が指定位置を指します。
+  - `anchor`: しっぽなしで、指定位置を吹き出しのどこに合わせるかを選びます。  
+    `TopLeft` `TopRight` `BottomLeft` `BottomRight` `Center`。
+  - どちらも省略すると、しっぽなしで `BalloonDefault.Anchor` (既定 `TopLeft`) に合わせます。
+- 既定値 (フォント・色・枠線・不透明度・原点) の変更は `BalloonDefault` を使用します。
   - `fontSize` = 10
   - `fontName` = システムのメッセージ用フォント (例: `"メイリオ"`。見つからない場合は代替フォント)
   - `foreColor` = #000000 (黒)
@@ -354,6 +359,7 @@ BalloonDefaults BalloonDefault { get; }
   - `borderThickness` = 1 (DPI 100% のときのピクセル数。拡大率に合わせて太くなる。0 で枠線なし。負の値は 0)  
     `new Thickness(左, 上, 右, 下)` で上下左右を別々に指定できます。int を渡すと上下左右が同じ太さです。
   - `opacity` = 1.0 (0.0 = 透明 ～ 1.0 = 不透明。範囲外は丸める)
+  - `anchor` = `BalloonAnchor.TopLeft`
 - 前面に出ずフォーカスを奪わないので、操作中のウィンドウに影響しません。
 - 返り値の `Balloon` で操作します。
   - `Update([message], [Point? point])` / `Update(message, x, y)`: 文字列や位置を変えます。  
@@ -372,10 +378,12 @@ var b = Balloon("処理中です…");
 b.Update("あと少し…");
 b.Close();
 
-var a = Balloon("ここ", new Point(600, 300), BalloonTail.BottomRight, 14, backColor: Color.LightBlue);
+var a = Balloon("ここ", BalloonTail.BottomRight, new Point(600, 300), 14, backColor: Color.LightBlue);
 var c = Balloon("そこ", 900, 300, opacity: 0.6);	// 半透明
 Balloon("枠", 600, 500, borderColor: Color.Red, borderThickness: 3);
 Balloon("下だけ太い枠", 600, 600, borderThickness: new Thickness(1, 1, 1, 4));
+Balloon("画面中央", BalloonAnchor.Center, 960, 540);
+Balloon("右下を合わせる", BalloonAnchor.BottomRight, new Point(1900, 1000));
 BalloonClear();										// 全部消す
 
 using (Balloon("この間だけ表示")) { Sleep(2000); }
@@ -1322,6 +1330,10 @@ void   SetClipboard(string text)
 ### BalloonTail
 
 吹き出しのしっぽの位置です: `None` (既定) `TopLeft` `TopRight` `BottomLeft` `BottomRight`
+
+### BalloonAnchor
+
+しっぽなしの吹き出しで、指定座標を合わせる位置です: `TopLeft` (既定) `TopRight` `BottomLeft` `BottomRight` `Center`
 
 ### CursorKind
 

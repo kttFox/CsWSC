@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using static CsWSC.NativeMethods;
 
 namespace CsWSC;
@@ -80,7 +80,7 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 	private readonly BalloonHost _balloons = new();
 
 	/// <summary>
-	/// <see cref="Balloon(string, Point, BalloonTail, float?, string?, Color?, Color?, Color?, Thickness?, double?)"/> で引数を省略したときの初期値です。
+	/// <see cref="Balloon(string, Point, float?, string?, Color?, Color?, Color?, Thickness?, double?)"/> で引数を省略したときの初期値です。
 	/// </summary>
 	/// <example>
 	/// <code>
@@ -95,8 +95,7 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 	/// 吹き出しを表示し、その吹き出しを返します。呼ぶたびに新しい吹き出しが増えます。UWSC の FUKIDASI に相当します。
 	/// </summary>
 	/// <param name="message">表示する文字列です。改行で複数行になります。</param>
-	/// <param name="point">しっぽの先が指す座標です。省略すると (0, 0) です。</param>
-	/// <param name="tail">しっぽの位置です。既定は <see cref="BalloonTail.None"/> (しっぽなし) です。</param>
+	/// <param name="point">表示する座標です。吹き出しの <see cref="BalloonDefaults.Anchor"/> の位置 (既定は左上) をここに合わせます。省略すると (0, 0) です。</param>
 	/// <param name="fontSize">文字の大きさです (ポイント)。省略すると <see cref="BalloonDefault"/> の値 (既定 10) です。</param>
 	/// <param name="fontName">フォント名です (例: "メイリオ")。省略すると <see cref="BalloonDefault"/> の値 (既定はシステムのメッセージ用フォント) です。見つからない場合は代替フォントになります。</param>
 	/// <param name="foreColor">文字色です。省略すると <see cref="BalloonDefault"/> の値 (既定は黒) です。</param>
@@ -116,16 +115,67 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 	/// b.Update("あと少し…");
 	/// b.Close();
 	///
-	/// var a = Balloon("ここ", new Point(600, 300), BalloonTail.BottomRight, 14, backColor: Color.LightBlue);
+	/// var a = Balloon("ここ", BalloonTail.BottomRight, new Point(600, 300), 14, backColor: Color.LightBlue);
 	/// var c = Balloon("そこ", new Point(900, 300));
 	/// BalloonClear(); // 全部消す
 	///
 	/// using (Balloon("この間だけ表示")) { Sleep(2000); }
 	/// </code>
 	/// </example>
-	public Balloon Balloon( string message, Point point = default, BalloonTail tail = BalloonTail.None,
+	public Balloon Balloon( string message, Point point = default,
 		float? fontSize = null, string? fontName = null, Color? foreColor = null, Color? backColor = null,
-		Color? borderColor = null, Thickness? borderThickness = null, double? opacity = null ) {
+		Color? borderColor = null, Thickness? borderThickness = null, double? opacity = null )
+		=> ShowBalloon( message, null, point, BalloonTail.None, fontSize, fontName, foreColor, backColor, borderColor, borderThickness, opacity );
+
+	/// <summary><see cref="Balloon(string, Point, float?, string?, Color?, Color?, Color?, Thickness?, double?)"/> の座標を x, y で指定する版です。</summary>
+	public Balloon Balloon( string message, int x, int y,
+		float? fontSize = null, string? fontName = null, Color? foreColor = null, Color? backColor = null,
+		Color? borderColor = null, Thickness? borderThickness = null, double? opacity = null )
+		=> ShowBalloon( message, null, new Point( x, y ), BalloonTail.None, fontSize, fontName, foreColor, backColor, borderColor, borderThickness, opacity );
+
+	/// <summary>
+	/// <see cref="Balloon(string, Point, float?, string?, Color?, Color?, Color?, Thickness?, double?)"/> の、しっぽを付ける版です。しっぽの先が <paramref name="point"/> を指します。
+	/// </summary>
+	/// <param name="tail">しっぽの位置です。<see cref="BalloonTail.None"/> ならしっぽなしで、<see cref="BalloonDefaults.Anchor"/> の位置を合わせます。</param>
+	/// <example>
+	/// <code>
+	/// Balloon("ここ", BalloonTail.BottomRight, new Point(600, 300));
+	/// </code>
+	/// </example>
+	public Balloon Balloon( string message, BalloonTail tail, Point point = default,
+		float? fontSize = null, string? fontName = null, Color? foreColor = null, Color? backColor = null,
+		Color? borderColor = null, Thickness? borderThickness = null, double? opacity = null )
+		=> ShowBalloon( message, null, point, tail, fontSize, fontName, foreColor, backColor, borderColor, borderThickness, opacity );
+
+	/// <summary><see cref="Balloon(string, BalloonTail, Point, float?, string?, Color?, Color?, Color?, Thickness?, double?)"/> の座標を x, y で指定する版です。</summary>
+	public Balloon Balloon( string message, BalloonTail tail, int x, int y,
+		float? fontSize = null, string? fontName = null, Color? foreColor = null, Color? backColor = null,
+		Color? borderColor = null, Thickness? borderThickness = null, double? opacity = null )
+		=> ShowBalloon( message, null, new Point( x, y ), tail, fontSize, fontName, foreColor, backColor, borderColor, borderThickness, opacity );
+
+	/// <summary>
+	/// <see cref="Balloon(string, Point, float?, string?, Color?, Color?, Color?, Thickness?, double?)"/> の、座標を吹き出しのどこに合わせるかを指定する版です (しっぽなし)。
+	/// </summary>
+	/// <param name="anchor"><paramref name="point"/> を吹き出しのどこ (左上・右上・左下・右下・中央) に合わせるかです。</param>
+	/// <example>
+	/// <code>
+	/// Balloon("画面中央", BalloonAnchor.Center, new Point(960, 540));
+	/// </code>
+	/// </example>
+	public Balloon Balloon( string message, BalloonAnchor anchor, Point point = default,
+		float? fontSize = null, string? fontName = null, Color? foreColor = null, Color? backColor = null,
+		Color? borderColor = null, Thickness? borderThickness = null, double? opacity = null )
+		=> ShowBalloon( message, anchor, point, BalloonTail.None, fontSize, fontName, foreColor, backColor, borderColor, borderThickness, opacity );
+
+	/// <summary><see cref="Balloon(string, BalloonAnchor, Point, float?, string?, Color?, Color?, Color?, Thickness?, double?)"/> の座標を x, y で指定する版です。</summary>
+	public Balloon Balloon( string message, BalloonAnchor anchor, int x, int y,
+		float? fontSize = null, string? fontName = null, Color? foreColor = null, Color? backColor = null,
+		Color? borderColor = null, Thickness? borderThickness = null, double? opacity = null )
+		=> ShowBalloon( message, anchor, new Point( x, y ), BalloonTail.None, fontSize, fontName, foreColor, backColor, borderColor, borderThickness, opacity );
+
+	private Balloon ShowBalloon( string message, BalloonAnchor? anchor, Point point, BalloonTail tail,
+		float? fontSize, string? fontName, Color? foreColor, Color? backColor,
+		Color? borderColor, Thickness? borderThickness, double? opacity ) {
 		Check();
 		ArgumentNullException.ThrowIfNull( message );
 		var pos = ToScreen( point );
@@ -134,14 +184,8 @@ public partial class ScriptGlobals( Action<string> output, CancellationToken can
 		return new Balloon( _balloons, BalloonHost.Normalize( message ), pos, tail, fontSize ?? d.FontSize,
 			backColor ?? d.BackColor, fore, borderColor ?? d.BorderColor ?? Color.FromArgb( 160, fore ), ( borderThickness ?? d.BorderThickness ).NonNegative(),
 			Math.Clamp( opacity ?? d.Opacity, 0.0, 1.0 ), fontName ?? d.FontName,
-			ToScreen, FromScreen );
+			anchor ?? d.Anchor, ToScreen, FromScreen );
 	}
-
-	/// <summary><see cref="Balloon(string, Point, BalloonTail, float?, string?, Color?, Color?, Color?, Thickness?, double?)"/> の座標を x, y で指定する版です。</summary>
-	public Balloon Balloon( string message, int x, int y, BalloonTail tail = BalloonTail.None,
-		float? fontSize = null, string? fontName = null, Color? foreColor = null, Color? backColor = null,
-		Color? borderColor = null, Thickness? borderThickness = null, double? opacity = null )
-		=> Balloon( message, new Point( x, y ), tail, fontSize, fontName, foreColor, backColor, borderColor, borderThickness, opacity );
 
 	/// <summary>
 	/// 表示中の吹き出しをすべて消します。
