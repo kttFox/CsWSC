@@ -47,6 +47,19 @@ public class DiagnosticsTests {
 	}
 
 	[Fact]
+	public async Task Library_CanReferenceDll() {
+		// .cswsl の先頭の #r "x.dll" はエラーにならず、その DLL の型を使える
+		var directory = Path.Combine( Path.GetTempPath(), "CsWSC.Tests." + Guid.NewGuid().ToString( "N" ) );
+		Directory.CreateDirectory( directory );
+		try {
+			File.Copy( typeof( Xunit.Assert ).Assembly.Location, Path.Combine( directory, "Dep.dll" ) );
+			var uri = new Uri( Path.Combine( directory, "Lib.cswsl" ) ).AbsoluteUri;
+			var r = await _service.DiagnoseAsync( uri, "#r \"Dep.dll\"\npublic static class Lib { public static void F() => Xunit.Assert.True( true ); }\n" );
+			Assert.DoesNotContain( r, d => d.Severity == "error" );
+		} finally { try { Directory.Delete( directory, true ); } catch( UnauthorizedAccessException ) { } catch( IOException ) { } }
+	}
+
+	[Fact]
 	public async Task ReferenceCswsl_FromLoadedScript() {
 		// #load 先の #r で参照したライブラリの型が、エラーにならず使える
 		var directory = Path.Combine( Path.GetTempPath(), "CsWSC.Tests." + Guid.NewGuid().ToString( "N" ) );

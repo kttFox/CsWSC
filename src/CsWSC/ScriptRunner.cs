@@ -336,7 +336,8 @@ public static class ScriptRunner {
 			.Concat( ( script.Options.MetadataResolver as ScriptLibraryResolver )?.Sources ?? [] );
 		var defaults = References.Select( a => a.Location ).ToHashSet( StringComparer.OrdinalIgnoreCase );
 		var references = compilation.References.OfType<PortableExecutableReference>()
-			.Select( r => r.FilePath ).OfType<string>().Where( f => !defaults.Contains( f ) );
+			.Select( r => r.FilePath ).OfType<string>().Where( f => !defaults.Contains( f ) )
+			.Concat( ( script.Options.MetadataResolver as ScriptLibraryResolver )?.Dependencies ?? [] ); // ライブラリが #r した DLL
 		var entry = new ScriptCache.Entry( stream.ToArray(), [.. references.Distinct( StringComparer.OrdinalIgnoreCase )] );
 		if( cachePath != null ) {
 			ScriptCache.Write( cachePath, entry, path != null ? System.IO.Path.GetFullPath( path ) : null, [.. loads.Distinct( StringComparer.OrdinalIgnoreCase )] );

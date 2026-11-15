@@ -10,7 +10,7 @@
 - 組み込みコマンドは**クラス名なし**で呼ぶ (`Mouse(...)`、`GetWindow(...)`)。
 - 既定の using: `System` `System.IO` `System.Linq` `System.Text` `System.Collections.Generic` `System.Threading` `System.Threading.Tasks` `System.Drawing` `System.Windows.Forms` `CsWSC`
 - nullable 参照型が有効。null になりうる変数は `string?` のように宣言する (null の指摘は警告で、実行は止まらない)。
-- 他のアセンブリは先頭に `#r "path.dll"` か `#r "System.Data"` を書く (相対パスの基準はスクリプトのフォルダ)。`#r "Ext.cswsl"` と書くと、.cswsl (ライブラリ用の拡張子) を通常の C# としてコンパイルして参照する (スクリプトでは書けない `extension` ブロックの拡張演算子などに使う)。
+- 他のアセンブリは先頭に `#r "path.dll"` か `#r "System.Data"` を書く (相対パスの基準はスクリプトのフォルダ)。`#r "Ext.cswsl"` と書くと、.cswsl (ライブラリ用の拡張子) を通常の C# としてコンパイルして参照する (スクリプトでは書けない `extension` ブロックの拡張演算子などに使う)。.cswsl の先頭にも `#r "x.dll"` を書ける (基準は .cswsl のフォルダ。別の .cswsl は参照できない)。
 - 途中で終了するには `return;`、関数やスレッドの中から全体を終了するには `ExitScript();` を使う。
 
 ## 必ず守るルール

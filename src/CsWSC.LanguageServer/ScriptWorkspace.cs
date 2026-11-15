@@ -57,9 +57,48 @@ internal sealed partial class ScriptWorkspace {
 				loader: TextLoader.From( TextAndVersion.Create( SourceText.From( "" ), VersionStamp.Create() ) ) ) );
 			_documents[uri] = id;
 		}
+		if( ScriptLibraryResolver.IsLibrary( uri ) ) {
+			text = ApplyLibraryReferences( id.ProjectId, uri, text );
+		}
 		var solution = _workspace.CurrentSolution.WithDocumentText( id, SourceText.From( text ) );
 		_workspace.TryApplyChanges( solution );
 		return _workspace.CurrentSolution.GetDocument( id )!;
+	}
+
+	/// <summary>ライブラリごとの、今プロジェクトに足してある #r の DLL (パスと更新時刻をつないだもの) です。</summary>
+	private readonly Dictionary<string, string> _libraryReferenceKeys = [];
+
+	/// <summary>
+	/// ライブラリ (.cswsl) の先頭の #r "x.dll" をプロジェクトの参照にし、#r を // に置き換えたテキストを返します
+	/// (通常の C# では #r がエラーになるため。同じ長さなので位置はずれない)。DLL が増減・更新されたときだけ参照を付け替えます。
+	/// </summary>
+	private string ApplyLibraryReferences( ProjectId projectId, string uri, string text ) {
+		var (code, directives) = ScriptLibraryResolver.ParseReferences( text );
+		var filePath = ToFilePath( uri );
+		var baseDir = filePath != null ? Path.GetDirectoryName( filePath )! : AppContext.BaseDirectory;
+		var resolver = ScriptMetadataResolver.Default.WithBaseDirectory( baseDir );
+		var files = directives
+			.Where( d => !ScriptLibraryResolver.IsLibrary( d.Path ) )
+			.Select( d => resolver.ResolveReference( d.Path, filePath, MetadataReferenceProperties.Assembly ) )
+			.Where( r => !r.IsDefaultOrEmpty && r[0].FilePath != null )
+			.Select( r => Path.GetFullPath( r[0].FilePath! ) )
+			.Distinct( StringComparer.OrdinalIgnoreCase )
+			.ToArray();
+		var key = string.Join( "\0", files.Select( f => $"{f.ToUpperInvariant()}|{File.GetLastWriteTimeUtc( f ).Ticks}" ) );
+		if( _libraryReferenceKeys.GetValueOrDefault( uri, "" ) == key ) {
+			return code;
+		}
+
+		var references = _references.ToBuilder();
+		foreach( var file in files ) {
+			try {
+				// DLL を置き換えられるよう、メモリに読み込んでファイルを開いたままにしない
+				references.Add( MetadataReference.CreateFromImage( File.ReadAllBytes( file ), documentation: FindDocumentation( file ), filePath: file ) );
+			} catch( Exception e ) when( e is BadImageFormatException or IOException ) { }
+		}
+		_workspace.TryApplyChanges( _workspace.CurrentSolution.WithProjectMetadataReferences( projectId, references.ToImmutable() ) );
+		_libraryReferenceKeys[uri] = key;
+		return code;
 	}
 
 	/// <summary>
@@ -138,6 +177,7 @@ internal sealed partial class ScriptWorkspace {
 
 	public void Close( string uri ) {
 		_libraryResolvers.Remove( uri );
+		_libraryReferenceKeys.Remove( uri );
 		if( _documents.Remove( uri, out var id ) ) _workspace.TryApplyChanges( _workspace.CurrentSolution.RemoveProject( id.ProjectId ) );
 	}
 

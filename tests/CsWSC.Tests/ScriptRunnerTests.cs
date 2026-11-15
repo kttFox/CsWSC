@@ -230,6 +230,34 @@ public class ScriptRunnerTests {
 	}
 
 	[Fact]
+	public void ReferenceCswsl_CanReferenceDll() {
+		// .cswsl の先頭の #r "x.dll" で DLL を参照でき、スクリプトは .cswsl を #r するだけで動く
+		var directory = Path.Combine( Path.GetTempPath(), "CsWSC.Tests." + Guid.NewGuid().ToString( "N" ) );
+		var cache = Path.Combine( directory, "cache" );
+		var path = Path.Combine( directory, "main.csws" );
+		Directory.CreateDirectory( directory );
+		try {
+			var dll = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create( "Dep",
+				[Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText( "namespace Dep; public class Item { public string Name = \"a\"; } public static class Source { public static Item Get() => new(); }" )],
+				[Microsoft.CodeAnalysis.MetadataReference.CreateFromFile( typeof( object ).Assembly.Location )],
+				new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions( Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary ) );
+			Assert.True( Microsoft.CodeAnalysis.FileSystemExtensions.Emit( dll, Path.Combine( directory, "Dep.dll" ) ).Success );
+			File.WriteAllText( Path.Combine( directory, "Lib.cswsl" ),
+				"// 説明\n#r \"Dep.dll\"\nusing Dep;\npublic static class Lib { public static Item First() => Source.Get(); }" );
+			const string Code = "#r \"Lib.cswsl\"\nvar item = Lib.First();\nPrint(item.Name);";
+			for( var i = 0; i < 2; i++ ) { // 1 回目はコンパイル、2 回目はキャッシュから
+				var output = new List<string>();
+				ScriptRunner.Run( Code, output.Add, CancellationToken.None, path: path, cacheDirectory: cache );
+				Assert.Equal( ["a"], output );
+			}
+
+			File.WriteAllText( Path.Combine( directory, "Bad.cswsl" ), "#r \"None.dll\"\npublic static class Bad { }" );
+			var ex = Assert.Throws<ScriptException>( () => ScriptRunner.Compile( "#r \"Bad.cswsl\"\n", path ) );
+			Assert.Contains( "Bad.cswsl(1):", ex.Message );
+		} finally { try { Directory.Delete( directory, true ); } catch( UnauthorizedAccessException ) { } catch( IOException ) { } }
+	}
+
+	[Fact]
 	public void ReferenceCswsl_FromLoadedScript() {
 		// #load 先の #r は、#load 先のフォルダを基準に解決する
 		var directory = Path.Combine( Path.GetTempPath(), "CsWSC.Tests." + Guid.NewGuid().ToString( "N" ) );

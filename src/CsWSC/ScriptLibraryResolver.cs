@@ -63,6 +63,52 @@ public sealed class ScriptLibraryResolver : MetadataReferenceResolver {
 	/// <summary>ライブラリのコンパイルエラーです。</summary>
 	public IReadOnlyCollection<string> Errors => [.. _errors];
 
+	/// <summary>ライブラリが #r で参照した DLL のフルパスです (実行時の読み込みと、キャッシュの依存ファイル用)。</summary>
+	public IReadOnlyCollection<string> Dependencies => [.. _dependencies.Keys];
+
+	private readonly ConcurrentDictionary<string, PortableExecutableReference> _dependencies = new( StringComparer.OrdinalIgnoreCase );
+
+	/// <summary>
+	/// ライブラリの先頭に書かれた #r "..." を取り出します。通常の C# では #r を書けないので、返す Code ではその行の #r を // に置き換えます
+	/// (同じ長さなので行と列はずれない)。先頭の空行・コメント行・# で始まる行だけを見て、それ以外の行が出たら終わります。
+	/// </summary>
+	public static (string Code, IReadOnlyList<(string Path, int Line)> References) ParseReferences( string text ) {
+		var references = new List<(string, int)>();
+		var code = new StringBuilder( text );
+		var line = 1;
+		for( var start = 0; start < text.Length; line++ ) {
+			var end = text.IndexOf( '\n', start );
+			if( end < 0 ) end = text.Length;
+			var content = text.AsSpan( start, end - start ).Trim();
+			var indent = text.AsSpan( start, end - start ).Length - text.AsSpan( start, end - start ).TrimStart().Length;
+			if( content.StartsWith( "#r" ) && content.Length > 2 && ( content[2] == ' ' || content[2] == '\t' || content[2] == '"' ) ) {
+				var rest = content[2..].Trim();
+				var close = rest.Length > 1 && rest[0] == '"' ? rest[1..].IndexOf( '"' ) : -1;
+				if( close >= 0 ) {
+					references.Add( (rest.Slice( 1, close ).ToString(), line) );
+					code[start + indent] = '/';
+					code[start + indent + 1] = '/';
+				}
+			} else if( content.Length > 0 && !content.StartsWith( "//" ) && !content.StartsWith( "#" ) ) {
+				break;
+			}
+			start = end + 1;
+		}
+		return (code.ToString(), references);
+	}
+
+	/// <summary>ライブラリが #r で参照した DLL は、ライブラリの DLL の隣には無いので、ここで名前から探して渡します。</summary>
+	public override bool ResolveMissingAssemblies => true;
+
+	public override PortableExecutableReference? ResolveMissingAssembly( MetadataReference definition, AssemblyIdentity referenceIdentity ) {
+		foreach( var (path, reference) in _dependencies ) {
+			if( string.Equals( Path.GetFileNameWithoutExtension( path ), referenceIdentity.Name, StringComparison.OrdinalIgnoreCase ) ) {
+				return reference;
+			}
+		}
+		return _inner.ResolveMissingAssembly( definition, referenceIdentity );
+	}
+
 	public override ImmutableArray<PortableExecutableReference> ResolveReference( string reference, string? baseFilePath, MetadataReferenceProperties properties ) {
 		if( !IsLibrary( reference ) ) {
 			return _inner.ResolveReference( reference, baseFilePath, properties );
@@ -81,11 +127,35 @@ public sealed class ScriptLibraryResolver : MetadataReferenceResolver {
 
 	/// <summary>ライブラリをコンパイルして DLL のパスを返します。保存済みならコンパイルしません。エラーなら null です。</summary>
 	private string? Compile( string source ) {
-		var text = File.ReadAllText( source );
-		var key = string.Join( "\0", text, source.ToUpperInvariant(), typeof( ScriptLibraryResolver ).Module.ModuleVersionId );
+		var (text, directives) = ParseReferences( File.ReadAllText( source ) );
+
+		// ライブラリの #r。相対パスはライブラリのフォルダを基準にする
+		var dependencies = new List<PortableExecutableReference>();
+		var failed = false;
+		foreach( var (path, line) in directives ) {
+			var resolved = IsLibrary( path ) ? [] : _inner.ResolveReference( path, source, MetadataReferenceProperties.Assembly );
+			if( resolved.IsDefaultOrEmpty || resolved[0].FilePath is not { } file ) {
+				_errors.Enqueue( IsLibrary( path )
+					? $"{Path.GetFileName( source )}({line}): ライブラリ ({Extension}) から別のライブラリ '{path}' は参照できません"
+					: $"{Path.GetFileName( source )}({line}): 参照 '{path}' が見つかりません (CS0006)" );
+				failed = true;
+				continue;
+			}
+			dependencies.Add( _dependencies.GetOrAdd( Path.GetFullPath( file ), resolved[0] ) );
+		}
+		if( failed ) {
+			return null;
+		}
+
+		// 参照先の DLL が変わったらコンパイルし直す
+		var stamps = dependencies.Select( d => $"{d.FilePath!.ToUpperInvariant()}|{File.GetLastWriteTimeUtc( d.FilePath! ).Ticks}" );
+		var key = string.Join( "\0", [text, source.ToUpperInvariant(), typeof( ScriptLibraryResolver ).Module.ModuleVersionId.ToString(), .. stamps] );
 		var name = "csws_" + Convert.ToHexString( SHA256.HashData( Encoding.UTF8.GetBytes( key ) ) )[..32];
 		var dll = Path.Combine( LibraryDirectory, name + ".dll" );
 		if( File.Exists( dll ) ) {
+			try {
+				File.SetLastWriteTimeUtc( dll, DateTime.UtcNow ); // 削除順の判定用
+			} catch( IOException ) { } catch( UnauthorizedAccessException ) { }
 			return dll;
 		}
 
@@ -94,7 +164,7 @@ public sealed class ScriptLibraryResolver : MetadataReferenceResolver {
 				CSharpSyntaxTree.ParseText( GlobalUsings, ParseOptions ),
 				CSharpSyntaxTree.ParseText( text, ParseOptions, source, Encoding.UTF8 ),
 			],
-			_references,
+			_references.AddRange( dependencies ),
 			CompilationOptions );
 		using var stream = new MemoryStream();
 		var result = compilation.Emit( stream,
@@ -115,7 +185,24 @@ public sealed class ScriptLibraryResolver : MetadataReferenceResolver {
 		} catch( IOException ) when( File.Exists( dll ) ) {
 			// 別のプロセスが同時に同じ DLL を置いた
 		}
+		DeleteOldFiles();
 		return dll;
+	}
+
+	/// <summary>保存しておくライブラリの DLL の最大数です。</summary>
+	private const int MaxFiles = 100;
+
+	/// <summary>最近使っていない DLL を、最大数を超えた分だけ消します。実行中のスクリプトが読み込んでいて消せないものは残します。</summary>
+	private static void DeleteOldFiles() {
+		FileInfo[] files;
+		try {
+			files = new DirectoryInfo( LibraryDirectory ).GetFiles( "csws_*.dll" );
+		} catch( IOException ) { return; } catch( UnauthorizedAccessException ) { return; }
+		foreach( var old in files.OrderByDescending( f => f.LastWriteTimeUtc ).Skip( MaxFiles ) ) {
+			try {
+				old.Delete();
+			} catch( IOException ) { } catch( UnauthorizedAccessException ) { }
+		}
 	}
 
 	public override bool Equals( object? other ) =>
