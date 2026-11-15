@@ -154,7 +154,9 @@ public sealed class ScriptLibraryResolver : MetadataReferenceResolver {
 		var dll = Path.Combine( LibraryDirectory, name + ".dll" );
 		if( File.Exists( dll ) ) {
 			try {
-				File.SetLastWriteTimeUtc( dll, DateTime.UtcNow ); // 削除順の判定用
+				// 削除順の判定用。更新日時を変えると、この DLL を #r しているスクリプトのキャッシュが
+				// 依存ファイルの変更とみなされてコンパイルし直しが繰り返されるので、アクセス日時を使う
+				File.SetLastAccessTimeUtc( dll, DateTime.UtcNow );
 			} catch( IOException ) { } catch( UnauthorizedAccessException ) { }
 			return dll;
 		}
@@ -198,7 +200,7 @@ public sealed class ScriptLibraryResolver : MetadataReferenceResolver {
 		try {
 			files = new DirectoryInfo( LibraryDirectory ).GetFiles( "csws_*.dll" );
 		} catch( IOException ) { return; } catch( UnauthorizedAccessException ) { return; }
-		foreach( var old in files.OrderByDescending( f => f.LastWriteTimeUtc ).Skip( MaxFiles ) ) {
+		foreach( var old in files.OrderByDescending( f => f.LastAccessTimeUtc ).Skip( MaxFiles ) ) {
 			try {
 				old.Delete();
 			} catch( IOException ) { } catch( UnauthorizedAccessException ) { }

@@ -8,7 +8,8 @@ namespace CsWSC;
 /// <remarks>
 /// &lt;ハッシュ&gt;.dll にアセンブリ、&lt;ハッシュ&gt;.deps に依存ファイル (#load / #r) の一覧を保存します。
 /// 依存ファイルの更新日時かサイズが変わっていれば使いません。
-/// .deps にはスクリプト本体のパスも記録し、依存ファイルが変わったものを裏でコンパイルし直すのに使います (<see cref="FindStale"/>)。
+/// .deps にはスクリプト本体のパスと CsWSC のビルドも記録し、依存ファイルが変わったものや CsWSC の更新前に作ったものを
+/// 裏でコンパイルし直すのに使います (<see cref="FindStale"/>)。
 /// </remarks>
 internal static class ScriptCache {
 	/// <summary>コンパイル結果です。References は #r で参照した DLL のパスです (実行時の読み込みに使う)。</summary>
@@ -17,7 +18,10 @@ internal static class ScriptCache {
 	/// <summary>これを超えたら古いものから消します。</summary>
 	private const int MaxFiles = 100;
 
-	private const string MainKind = "main", LoadKind = "load", ReferenceKind = "r";
+	private const string MainKind = "main", LoadKind = "load", ReferenceKind = "r", BuildKind = "build";
+
+	/// <summary>今の CsWSC のビルドです。キャッシュのキーと .deps に使います。</summary>
+	private static readonly string Build = typeof( ScriptCache ).Module.ModuleVersionId.ToString( "N" );
 
 	/// <summary>キャッシュファイル (.dll) のパスです。キーはコード・ファイルパス (行番号表示と #r の基準)・CsWSC のビルドです。</summary>
 	public static string? GetPath( string? directory, string code, string filePath ) {
@@ -25,7 +29,7 @@ internal static class ScriptCache {
 			return null;
 		}
 
-		var key = string.Join( "\0", code, filePath.ToUpperInvariant(), typeof( ScriptCache ).Module.ModuleVersionId );
+		var key = string.Join( "\0", code, filePath.ToUpperInvariant(), Build );
 		var hash = Convert.ToHexString( SHA256.HashData( Encoding.UTF8.GetBytes( key ) ) );
 		return Path.Combine( directory, hash + ".dll" );
 	}
@@ -39,8 +43,8 @@ internal static class ScriptCache {
 					return null;
 				}
 
-				if( kind == MainKind ) {
-					continue; // 本体はキーに含まれているので判定に使わない
+				if( kind is MainKind or BuildKind ) {
+					continue; // 本体とビルドはキーに含まれているので判定に使わない
 				}
 
 				var info = new FileInfo( file );
@@ -66,7 +70,8 @@ internal static class ScriptCache {
 			IEnumerable<(string, string)> files = main != null ? [(MainKind, main)] : [];
 			var deps = files.Concat( loads.Select( f => (LoadKind, f) ) ).Concat( entry.References.Select( f => (ReferenceKind, f) ) )
 				.Select( d => (Kind: d.Item1, Info: new FileInfo( d.Item2 )) )
-				.Select( d => $"{d.Kind}\t{d.Info.FullName}\t{d.Info.LastWriteTimeUtc.Ticks}\t{d.Info.Length}" );
+				.Select( d => $"{d.Kind}\t{d.Info.FullName}\t{d.Info.LastWriteTimeUtc.Ticks}\t{d.Info.Length}" )
+				.Append( $"{BuildKind}\t{Build}\t0\t0" );
 			// .deps が無ければキャッシュは使われないので、.dll を先に置き .deps を最後に置く
 			WriteAtomic( path, temp => File.WriteAllBytes( temp, entry.Image ) );
 			WriteAtomic( Path.ChangeExtension( path, ".deps" ), temp => File.WriteAllLines( temp, deps ) );
@@ -79,24 +84,33 @@ internal static class ScriptCache {
 	}
 
 	/// <summary>
-	/// 依存ファイル (#load / #r) が変わって使えなくなったキャッシュを探し、スクリプト本体のパスと .dll のパスを返します。
-	/// 本体を記録していないもの (古い形式や温め用) は対象外です。
+	/// 依存ファイル (#load / #r) が変わったか、CsWSC の別のビルドで作ったため使えなくなったキャッシュを探し、
+	/// スクリプト本体のパスと .dll のパスを返します。本体を記録していないもの (温め用) は対象外です。
 	/// </summary>
-	public static IReadOnlyList<(string Main, string CachePath)> FindStale( string directory ) {
-		var stale = new List<(string, string)>();
+	/// <remarks>
+	/// 別のビルドのものは、同じ本体の今のビルドのキャッシュがまだ無いときだけ返します (OtherBuild が true)。
+	/// 別のビルドの CsWSC (VS Code 拡張と開発中のビルドなど) が並行して使われていると、互いのキャッシュを作り直し続けてしまうためです。
+	/// </remarks>
+	public static IReadOnlyList<(string Main, string CachePath, bool OtherBuild)> FindStale( string directory ) {
+		var entries = new List<(string Main, string Dll, bool OtherBuild)>();
 		try {
 			foreach( var deps in Directory.EnumerateFiles( directory, "*.deps" ) ) {
 				var dll = Path.ChangeExtension( deps, ".dll" );
-				string? main;
+				string? main, build;
 				try {
-					main = File.ReadLines( deps ).Select( l => l.Split( '	' ) ).FirstOrDefault( f => f is [MainKind, _, _, _] )?[1];
+					var lines = File.ReadAllLines( deps ).Select( l => l.Split( '\t' ) ).ToList();
+					main = lines.FirstOrDefault( f => f is [MainKind, _, _, _] )?[1];
+					build = lines.FirstOrDefault( f => f is [BuildKind, _, _, _] )?[1]; // ビルドを記録していない古い形式も別のビルド扱い
 				} catch( IOException ) { continue; } catch( UnauthorizedAccessException ) { continue; }
-				if( main != null && File.Exists( dll ) && !IsFresh( dll ) ) {
-					stale.Add( (main, dll) );
+				if( main != null && File.Exists( dll ) ) {
+					entries.Add( (main, dll, build != Build) );
 				}
 			}
 		} catch( IOException ) { } catch( UnauthorizedAccessException ) { }
-		return stale;
+
+		var current = entries.Where( e => !e.OtherBuild ).Select( e => e.Main ).ToHashSet( StringComparer.OrdinalIgnoreCase );
+		return [.. entries.Where( e => e.OtherBuild ? !current.Contains( e.Main ) : !IsFresh( e.Dll ) )
+			.DistinctBy( e => (e.Main.ToUpperInvariant(), e.OtherBuild ? "" : e.Dll) )];
 	}
 
 	/// <summary>本体を記録しているキャッシュの依存ファイル (#load / #r) のフルパスを返します (変更の監視用)。</summary>
@@ -127,7 +141,7 @@ internal static class ScriptCache {
 					return false;
 				}
 
-				if( kind == MainKind ) {
+				if( kind is MainKind or BuildKind ) {
 					continue;
 				}
 

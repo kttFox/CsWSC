@@ -14,7 +14,7 @@ namespace CsWSC.UI;
 /// 親 → 子: 要求 = 種類 ("run" / "compile") の行 (起動時間の記録があればタブ区切りで後ろに付ける)、パス (未保存なら空) の行、ソースの文字数の行、ソース本体です。
 ///          以降は "stop" の行で停止要求です。"compile" ではコンパイル結果をキャッシュに保存して終了します。
 /// 子 → 親: 1 行 1 メッセージで、項目はタブ区切りです (文字列は <see cref="Escape"/> する)。
-///          compiling (1 = コンパイル開始, 0 = 終了) / print / visible / bounds / clear と、最後に ok / stopped / error のどれかです。
+///          compiling (1 = コンパイル開始, 0 = 終了) / print / visible / bounds / clear / recompile (--recompile の起動依頼) と、最後に ok / stopped / error のどれかです。
 /// </remarks>
 internal static class ScriptProcess {
 	public const string ChildArgument = "--run-script";
@@ -200,7 +200,9 @@ internal static class ScriptProcess {
 		string[]? end = null;
 		CompilingNotice? notice = null;
 		try {
-			while( await process.StandardOutput.ReadLineAsync() is { } line ) {
+			// 終わりのメッセージを受けたら EOF を待たずに抜ける
+			// (子が起動したプロセス (裏の再コンパイルや Exec など) が標準出力のハンドルを引き継ぐと、子が終わっても EOF にならない)
+			while( end == null && await process.StandardOutput.ReadLineAsync() is { } line ) {
 				var f = line.Split( '\t' );
 				switch( f[0] ) {
 					case "compiling":
@@ -212,13 +214,21 @@ internal static class ScriptProcess {
 					case "visible": logWindow.SetVisible( f[1] == "1" ); break;
 					case "bounds": logWindow.SetBounds( ParseInt( f[1] ), ParseInt( f[2] ), ParseInt( f[3] ), ParseInt( f[4] ) ); break;
 					case "clear": logWindow.Clear(); break;
+					case "recompile": Program.StartRecompile(); break;
 					case "ok" or "stopped" or "error": end = f; break;
 				}
 			}
 		} finally {
 			notice?.Dispose();
 		}
-		await process.WaitForExitAsync( CancellationToken.None );
+		// 終わりを伝えた後も子が終了しないことがある (終了処理で止まるなど) ので、猶予内に終わらなければ強制終了する
+		try {
+			await process.WaitForExitAsync( CancellationToken.None ).WaitAsync( KillDelay );
+		} catch( TimeoutException ) {
+			// スクリプトが Exec で起動したアプリなどは残す (子だけ終了する)
+			try { process.Kill(); } catch( Exception ) { }
+			await process.WaitForExitAsync( CancellationToken.None );
+		}
 
 		switch( end?[0] ) {
 			case "ok": return;
@@ -331,7 +341,8 @@ internal static class ScriptProcess {
 					if( trace != null ) PrintLog.WriteLaunch( path, LaunchTrace.Describe( LaunchTrace.Append( trace, "実行開始", DateTime.UtcNow ) ) );
 				},
 				// 共通のスクリプトなどが変わっていたら、同じものに依存するほかのスクリプトも裏でコンパイルし直しておく
-				Program.StartRecompile );
+				// 起動は親に頼む (同時に 1 つだけ動かし、親の終了で止めるため)
+				() => Send( "recompile" ) );
 			PrintLog.End( path, "正常終了" );
 			Send( "ok" );
 		} catch( OperationCanceledException ) {

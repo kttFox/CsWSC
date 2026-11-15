@@ -255,6 +255,9 @@ public static class ScriptRunner {
 		CompileToImage( code, path, cachePath );
 	}
 
+	/// <summary>コンパイルし直すべきキャッシュ (依存ファイルの変更や CsWSC の更新で使えなくなったもの) があるかを返します。</summary>
+	public static bool HasStaleCache( string cacheDirectory ) => ScriptCache.FindStale( cacheDirectory ).Count > 0;
+
 	/// <summary>キャッシュ済みのスクリプトが #load / #r しているファイルのフルパスです (常駐プロセスでの変更の監視用)。</summary>
 	public static IReadOnlySet<string> CachedDependencies( string cacheDirectory ) => ScriptCache.Dependencies( cacheDirectory );
 
@@ -263,8 +266,12 @@ public static class ScriptRunner {
 	/// 共通のスクリプトを変更した後に、ダブルクリックで実行したときのコンパイル待ちを無くすためのものです。
 	/// 本体が無くなったものや、本体が書き換わって別のキャッシュになったものは古いキャッシュを消します。コンパイルエラーは飛ばします (実行時に報告される)。
 	/// </summary>
-	public static void RecompileStale( string cacheDirectory ) {
-		foreach( var (main, cachePath) in ScriptCache.FindStale( cacheDirectory ) ) {
+	/// <param name="progress">1 件ごとに処理を始める前に (済んだ件数, 全件数, スクリプト本体のパス) で呼ばれます。</param>
+	public static void RecompileStale( string cacheDirectory, Action<int, int, string>? progress = null ) {
+		var stale = ScriptCache.FindStale( cacheDirectory );
+		for( var i = 0; i < stale.Count; i++ ) {
+			var (main, cachePath, otherBuild) = stale[i];
+			progress?.Invoke( i, stale.Count, main );
 			string code;
 			try { code = System.IO.File.ReadAllText( main ); } catch( Exception e ) when( e is System.IO.IOException or UnauthorizedAccessException ) {
 				ScriptCache.Delete( cachePath );
@@ -273,7 +280,8 @@ public static class ScriptRunner {
 
 			var current = ScriptCache.GetPath( cacheDirectory, code, main )!;
 			if( !string.Equals( current, cachePath, StringComparison.OrdinalIgnoreCase ) ) {
-				ScriptCache.Delete( cachePath );
+				// 別のビルドのものは、そのビルドの CsWSC がまだ使うかもしれないので消さない (多すぎれば古い順に消える)
+				if( !otherBuild ) ScriptCache.Delete( cachePath );
 				// 今の本体のキャッシュが使えるなら、コンパイルし直さない
 				if( ScriptCache.IsFresh( current ) ) {
 					continue;

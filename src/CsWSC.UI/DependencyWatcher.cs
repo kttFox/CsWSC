@@ -41,6 +41,12 @@ internal sealed class DependencyWatcher : IDisposable {
 		var watcher = new DependencyWatcher( ScriptRunner.DefaultCacheDirectory );
 		// .deps の読み込みは起動を遅らせないよう裏で行う
 		watcher.Schedule( watcher._refreshTimer );
+		// CsWSC の更新前に作ったキャッシュなどがあれば、裏でコンパイルし直しておく
+		_ = Task.Run( () => {
+			try {
+				if( ScriptRunner.HasStaleCache( ScriptRunner.DefaultCacheDirectory ) ) Program.StartRecompile();
+			} catch( Exception ) { }
+		} );
 		return watcher;
 	}
 

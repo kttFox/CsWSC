@@ -47,6 +47,8 @@ partial class MainForm {
 		this.trayIcon = new NotifyIcon( this.components );
 		this.toolTip = new ToolTip( this.components );
 		this.flowLayoutPanel1 = new FlowLayoutPanel();
+		this.recompileBar = new ProgressBar();
+		this.recompileTimer = new System.Windows.Forms.Timer( this.components );
 		this.settingsMenu.SuspendLayout();
 		this.flowLayoutPanel1.SuspendLayout();
 		this.SuspendLayout();
@@ -224,7 +226,23 @@ partial class MainForm {
 		this.flowLayoutPanel1.Name = "flowLayoutPanel1";
 		this.flowLayoutPanel1.Size = new Size( 214, 32 );
 		this.flowLayoutPanel1.TabIndex = 5;
-		// 
+		this.flowLayoutPanel1.MouseMove += this.FlowLayoutPanel1_MouseMove;
+		this.flowLayoutPanel1.MouseLeave += this.FlowLayoutPanel1_MouseLeave;
+		//
+		// recompileBar
+		//
+		this.recompileBar.Dock = DockStyle.Bottom;
+		this.recompileBar.Location = new Point( 0, 32 );
+		this.recompileBar.Name = "recompileBar";
+		this.recompileBar.Size = new Size( 214, 0 );
+		this.recompileBar.TabIndex = 6;
+		//
+		// recompileTimer
+		//
+		this.recompileTimer.Enabled = true;
+		this.recompileTimer.Interval = 500;
+		this.recompileTimer.Tick += this.RecompileTimer_Tick;
+		//
 		// MainForm
 		// 
 		this.AutoScaleDimensions = new SizeF( 7F, 15F );
@@ -233,6 +251,7 @@ partial class MainForm {
 		this.AutoSizeMode = AutoSizeMode.GrowAndShrink;
 		this.ClientSize = new Size( 214, 32 );
 		this.Controls.Add( this.flowLayoutPanel1 );
+		this.Controls.Add( this.recompileBar );
 		this.Font = new Font( "Yu Gothic UI", 9F );
 		this.FormBorderStyle = FormBorderStyle.FixedSingle;
 		this.Icon = Properties.Resources.AppIcon;
@@ -267,6 +286,8 @@ partial class MainForm {
 	private ToolStripMenuItem exitMenuItem;
 	private ToolTip toolTip;
 	private FlowLayoutPanel flowLayoutPanel1;
+	private ProgressBar recompileBar;
+	private System.Windows.Forms.Timer recompileTimer;
 	private ToolStripMenuItem optionsMenuItem;
 	private ToolStripSeparator optionsSeparator;
 	private NotifyIcon trayIcon;

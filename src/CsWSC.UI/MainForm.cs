@@ -905,4 +905,54 @@ public partial class MainForm : Form {
 		_settings.Save();
 		base.OnFormClosing( e );
 	}
+
+	/// <summary>裏でのキャッシュのコンパイルし直しの進み具合です (null ならしていない)。</summary>
+	private RecompileProgress.State? _recompileState;
+
+	/// <summary>--recompile の進み具合を読み、変わっていれば下端のバーとツールチップを更新します。</summary>
+	private void RecompileTimer_Tick( object? sender, EventArgs e ) {
+		var state = RecompileProgress.Read();
+		if( state == _recompileState ) return;
+		_recompileState = state;
+		// していないときは高さを 0 にし、フォームの高さ (AutoSize) に含めない
+		// (Visible の切り替えでは Fill のボタンの並びが縮むだけでフォームが伸びないため、高さで切り替える)
+		recompileBar.Height = state is null ? 0 : LogicalToDeviceUnits( 6 );
+		if( state is not null ) {
+			recompileBar.Maximum = state.Total;
+			recompileBar.Value = Math.Clamp( state.Done + 1, 0, state.Total );
+		}
+		toolTip.SetToolTip( recompileBar, RecompileToolTipText() );
+		if( _recompileHover ) ShowRecompileToolTip();
+	}
+
+	/// <summary>バーの上も含め、下端からこの範囲 (px) にマウスがあれば進み具合のツールチップを出します (細いバーだけでは合わせにくいため)。</summary>
+	private const int RecompileHoverHeight = 6;
+
+	/// <summary>バーのすぐ上 (ボタンの並びの下端) にマウスがあり、ツールチップを出しているかどうかです。</summary>
+	private bool _recompileHover;
+
+	private string? RecompileToolTipText() =>
+		_recompileState is { } s ? $"キャッシュを更新中 ({s.Done + 1}/{s.Total})\n{s.Path}" : null;
+
+	private void ShowRecompileToolTip() {
+		if( RecompileToolTipText() is { } text ) {
+			toolTip.Show( text, flowLayoutPanel1, 0, flowLayoutPanel1.Height + recompileBar.Height + 2 );
+		} else {
+			toolTip.Hide( flowLayoutPanel1 );
+		}
+	}
+
+	private void FlowLayoutPanel1_MouseMove( object? sender, MouseEventArgs e ) {
+		var hover = e.Y >= flowLayoutPanel1.Height - ( RecompileHoverHeight - recompileBar.Height );
+		if( hover == _recompileHover ) return;
+		_recompileHover = hover;
+		if( hover ) ShowRecompileToolTip();
+		else toolTip.Hide( flowLayoutPanel1 );
+	}
+
+	private void FlowLayoutPanel1_MouseLeave( object? sender, EventArgs e ) {
+		if( !_recompileHover ) return;
+		_recompileHover = false;
+		toolTip.Hide( flowLayoutPanel1 );
+	}
 }
