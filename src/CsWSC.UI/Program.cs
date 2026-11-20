@@ -175,6 +175,6 @@ static class Program {
 
 public class Form : System.Windows.Forms.Form {
 	public Form() {
-		this.Icon = System.Drawing.SystemIcons.Application;
+		this.Icon = Properties.Resources.AppIcon;
 	}
 }
